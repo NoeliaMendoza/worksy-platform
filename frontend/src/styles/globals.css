@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/plus-jakarta-sans';
+
+/*
+ * Tokens de Worksy. Todo color, radio y sombra de la interfaz sale de aquí.
+ * Paleta inspirada en interfaces clínicas: navy profundo para estructura y acción,
+ * azules "hielo" para superficies y un acento periwinkle para datos.
+ * Contrastes verificados para WCAG 2.2 AA (ver bitácora).
+ */
+@theme {
+  --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
+  /* Navy: estructura (sidebar, footer) y acción principal */
+  --color-navy-950: #071330;
+  --color-navy-900: #0b1f4b;
+  --color-navy-800: #12295f;
+  --color-navy-700: #1a3672;
+  --color-navy-600: #26468c;
+
+  /* Azul: acento interactivo y visualización de datos */
+  --color-azure-600: #2b55c8;
+  --color-azure-500: #3d6ae0;
+  --color-azure-400: #6e92ea;
+  --color-azure-300: #a3bcf3;
+  --color-azure-200: #c9d7f8;
+  --color-azure-100: #e1e9fb;
+  --color-azure-50: #f2f5fc;
+
+  /* Tinta: texto sobre fondos claros */
+  --color-ink-900: #0f172a;
+  --color-ink-700: #334155;
+  --color-ink-500: #5b6b86;
+  --color-ink-300: #a6b2c7;
+  --color-ink-100: #e5eaf2;
+
+  /* Confianza del modelo y decisiones humanas (siempre acompañadas de texto) */
+  --color-high-700: #0f766e;
+  --color-high-100: #d5f5ef;
+  --color-mid-700: #9a4a07; /* #b45309 daba 4,45:1 sobre mid-100 (no pasa AA) */
+  --color-mid-100: #fdf0d5;
+  --color-low-700: #be123c;
+  --color-low-100: #fde4ea;
+
+  --radius-card: 1.25rem;
+  --radius-panel: 1.75rem;
+
+  /* Sombras frías y difusas: dan profundidad sin el gris "plantilla" */
+  --shadow-soft: 0 1px 2px rgb(11 31 75 / 0.04), 0 8px 24px -12px rgb(11 31 75 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(11 31 75 / 0.05), 0 20px 40px -20px rgb(11 31 75 / 0.25);
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-azure-50 font-sans text-ink-900;
+    font-feature-settings: 'ss01', 'cv11';
+  }
+
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-azure-500;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
