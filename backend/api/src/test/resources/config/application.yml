@@ -1,0 +1,12 @@
+# Configuración solo para pruebas: se suma a la principal. Clave sintética, nunca usar fuera de tests.
+worksy:
+  auth:
+    jwt-secret: clave-sintetica-solo-para-pruebas-0123456789abcdef
+    refresh-cookie-secure: false
+    public-url: http://localhost:5173
+  # Proveedor sintético para probar el inicio del flujo OAuth (nunca contacta con Google en las pruebas).
+  oauth:
+    providers:
+      google:
+        client-id: cliente-sintetico.apps.ejemplo.test
+        client-secret: secreto-sintetico
