@@ -9,7 +9,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Logo } from '@/components/logo'
 import { cn } from '@/lib/cn'
 
@@ -73,6 +73,7 @@ function UserCard() {
 /** Estructura de la app: barra lateral navy en escritorio y barra superior con menú en móvil. */
 export function AppShell({ current, children }: { current: string; children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const menuButton = useRef<HTMLButtonElement>(null)
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
@@ -84,7 +85,7 @@ export function AppShell({ current, children }: { current: string; children: Rea
       </a>
 
       {/* Escritorio */}
-      <aside className="sticky top-0 hidden h-dvh flex-col gap-8 bg-navy-900 p-5 lg:flex">
+      <aside className="sticky top-0 hidden h-dvh flex-col gap-8 overflow-y-auto bg-navy-900 p-5 lg:flex">
         <div className="px-2 pt-1">
           <Logo />
         </div>
@@ -97,10 +98,19 @@ export function AppShell({ current, children }: { current: string; children: Rea
       </aside>
 
       {/* Móvil y tableta */}
-      <header className="sticky top-0 z-40 bg-navy-900 lg:hidden">
+      <header
+        className="sticky top-0 z-40 bg-navy-900 lg:hidden"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && menuOpen) {
+            setMenuOpen(false)
+            menuButton.current?.focus()
+          }
+        }}
+      >
         <div className="flex h-14 items-center justify-between px-4">
           <Logo />
           <button
+            ref={menuButton}
             type="button"
             aria-expanded={menuOpen}
             aria-controls="menu-movil"
@@ -112,7 +122,7 @@ export function AppShell({ current, children }: { current: string; children: Rea
           </button>
         </div>
         {menuOpen && (
-          <nav id="menu-movil" aria-label="Principal" className="flex flex-col gap-4 border-t border-white/10 px-4 pt-3 pb-5">
+          <nav id="menu-movil" aria-label="Principal" className="flex max-h-[calc(100dvh-3.5rem)] flex-col gap-4 overflow-y-auto overscroll-contain border-t border-white/10 px-4 pt-3 pb-5">
             <NavList current={current} />
             <UserCard />
           </nav>

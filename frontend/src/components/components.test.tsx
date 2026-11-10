@@ -168,3 +168,21 @@ describe('CriteriaSummary', () => {
     expect(screen.getByText(/1 sin cumplir/)).toBeInTheDocument()
   })
 })
+
+describe('AppShell', () => {
+  it('abre el menú móvil y lo cierra con Escape devolviendo el foco al botón', async () => {
+    const { AppShell } = await import('@/components/app-shell')
+    const user = userEvent.setup()
+    render(
+      <AppShell current="vacantes">
+        <p>Contenido</p>
+      </AppShell>,
+    )
+    const toggle = screen.getByRole('button', { name: 'Abrir menú' })
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    await user.keyboard('{Escape}')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).toHaveFocus()
+  })
+})

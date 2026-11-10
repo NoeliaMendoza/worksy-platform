@@ -54,6 +54,14 @@
     color-scheme: light;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* La barra superior fija (móvil) no debe tapar el elemento enfocado (WCAG 2.4.11). */
+    scroll-padding-top: 4.5rem;
+  }
+
+  @media (min-width: 64rem) {
+    html {
+      scroll-padding-top: 1rem;
+    }
   }
 
   body {
