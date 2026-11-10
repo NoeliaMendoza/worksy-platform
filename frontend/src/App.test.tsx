@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { App } from './App'
 import { RankingView } from '@/features/ranking/ranking-view'
 import { vacancyRankingMock } from '@/mocks/vacancy-ranking'
@@ -62,9 +62,32 @@ describe('RankingView (panel del reclutador)', () => {
 })
 
 describe('App', () => {
-  it('carga el ranking del mock dentro de la estructura con navegación', async () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  function stubRefresh(response: Response) {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(response)))
+  }
+
+  it('sin sesión muestra el inicio de sesión', async () => {
+    stubRefresh(new Response(JSON.stringify({ code: 'auth.refresh.invalid' }), { status: 401 }))
     render(<App />)
-    expect(screen.getAllByRole('navigation', { name: 'Principal' }).length).toBeGreaterThan(0)
+    expect(screen.getByRole('status')).toHaveTextContent('Comprobando tu sesión')
+    expect(await screen.findByRole('heading', { level: 1, name: 'Inicia sesión' })).toBeInTheDocument()
+  })
+
+  it('con sesión carga el ranking dentro de la estructura y permite cerrar sesión', async () => {
+    const tokens = {
+      accessToken: 'jwt-sintetico',
+      tokenType: 'Bearer',
+      expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+      user: { id: 'u-1', email: 'reclutadora@ejemplo.test', role: 'RECRUITER', companyId: 'c-1', createdAt: '' },
+    }
+    stubRefresh(new Response(JSON.stringify(tokens), { status: 200 }))
+    render(<App />)
     expect(await screen.findByRole('heading', { level: 1 }, { timeout: 2000 })).toHaveTextContent('Java')
+    expect(screen.getAllByRole('navigation', { name: 'Principal' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('reclutadora@ejemplo.test').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Reclutador/a').length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('button', { name: 'Cerrar sesión' }).length).toBeGreaterThan(0)
   })
 })

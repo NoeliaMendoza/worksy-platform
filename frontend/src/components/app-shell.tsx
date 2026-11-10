@@ -1,9 +1,9 @@
 import {
   BriefcaseBusiness,
   LayoutGrid,
+  LogOut,
   Menu,
   MessageSquare,
-  Settings,
   Users,
   Video,
   X,
@@ -22,7 +22,6 @@ const nav: NavItem[] = [
   { id: 'entrevistas', label: 'Entrevistas', icon: Video },
   { id: 'mensajes', label: 'Mensajes', icon: MessageSquare },
 ]
-
 
 function NavList({ current }: { current: string }) {
   return (
@@ -49,29 +48,50 @@ function NavList({ current }: { current: string }) {
   )
 }
 
-function UserCard() {
+export type ShellAccount = {
+  /** Texto principal (hoy el correo: la API aún no guarda nombres). */
+  name: string
+  /** Rol en palabras, p. ej. "Reclutador/a". */
+  detail: string
+}
+
+function UserCard({ account, onLogout }: { account?: ShellAccount; onLogout?: () => void }) {
+  if (!account) return null
+  const initials = account.name.replace(/[^a-zA-ZÀ-ÿ]/g, '').slice(0, 2).toUpperCase()
   return (
     <div className="flex items-center gap-3 rounded-card bg-white/5 p-3">
-      <span aria-hidden="true" className="grid size-9 place-items-center rounded-full bg-azure-500 text-xs font-semibold text-white">
-        RC
+      <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-azure-500 text-xs font-semibold text-white">
+        {initials}
       </span>
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-white">Rosa Calderón</p>
-        <p className="truncate text-xs text-azure-200">Reclutadora</p>
+        <p className="truncate text-sm font-semibold text-white" title={account.name}>
+          {account.name}
+        </p>
+        <p className="truncate text-xs text-azure-200">{account.detail}</p>
       </div>
-      <a
-        href="#ajustes"
-        className="ml-auto grid size-8 place-items-center rounded-full text-azure-200 hover:bg-white/10 hover:text-white focus-visible:outline-azure-300"
-      >
-        <Settings className="size-4" aria-hidden="true" />
-        <span className="sr-only">Ajustes</span>
-      </a>
+      {onLogout && (
+        <button
+          type="button"
+          onClick={onLogout}
+          className="ml-auto grid size-9 shrink-0 cursor-pointer place-items-center rounded-full text-azure-200 hover:bg-white/10 hover:text-white focus-visible:outline-azure-300"
+        >
+          <LogOut className="size-4" aria-hidden="true" />
+          <span className="sr-only">Cerrar sesión</span>
+        </button>
+      )}
     </div>
   )
 }
 
 /** Estructura de la app: barra lateral navy en escritorio y barra superior con menú en móvil. */
-export function AppShell({ current, children }: { current: string; children: ReactNode }) {
+type AppShellProps = {
+  current: string
+  account?: ShellAccount
+  onLogout?: () => void
+  children: ReactNode
+}
+
+export function AppShell({ current, account, onLogout, children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
 
@@ -93,7 +113,7 @@ export function AppShell({ current, children }: { current: string; children: Rea
           <NavList current={current} />
         </nav>
         <div className="mt-auto">
-          <UserCard />
+          <UserCard account={account} onLogout={onLogout} />
         </div>
       </aside>
 
@@ -124,7 +144,7 @@ export function AppShell({ current, children }: { current: string; children: Rea
         {menuOpen && (
           <nav id="menu-movil" aria-label="Principal" className="flex max-h-[calc(100dvh-3.5rem)] flex-col gap-4 overflow-y-auto overscroll-contain border-t border-white/10 px-4 pt-3 pb-5">
             <NavList current={current} />
-            <UserCard />
+            <UserCard account={account} onLogout={onLogout} />
           </nav>
         )}
       </header>
