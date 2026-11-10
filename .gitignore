@@ -1,0 +1,38 @@
+# Secretos y configuración local
+.env
+*.env.local
+
+# Java / Maven
+target/
+!.mvn/wrapper/maven-wrapper.jar
+*.class
+*.log
+hs_err_pid*
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / frontend
+node_modules/
+dist/
+coverage/
+
+# IDE y sistema
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Datos de experimentos (los resultados se versionan aparte si se decide)
+bench/results/*
+!bench/results/.gitkeep
+
+# Nunca versionar CV reales
+**/cv-reales/
