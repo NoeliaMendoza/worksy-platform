@@ -11,8 +11,9 @@ class OpenApiConfig {
     @Bean
     OpenAPI plataformaEmpleoOpenApi() {
         return new OpenAPI().info(new Info()
-                .title("Plataforma de empleo - API")
+                .title("Worksy API")
                 .version("v1")
-                .description("API REST bajo /api/v1. Errores en formato ProblemDetail (RFC 7807)."));
+                .description("Worksy: plataforma de empleo con preselección de CV y revisión humana. "
+                        + "API REST bajo /api/v1. Errores en formato ProblemDetail (RFC 7807)."));
     }
 }

@@ -31,6 +31,10 @@ def _request(provider="baseline", **overrides):
     return body
 
 
+def test_openapi_usa_la_marca(client):
+    assert client.get("/openapi.json").json()["info"]["title"] == "Worksy Inference"
+
+
 def test_healthz(client):
     res = client.get("/healthz")
     assert res.status_code == 200

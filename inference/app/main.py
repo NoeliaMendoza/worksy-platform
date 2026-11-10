@@ -37,7 +37,7 @@ def create_app(providers: list[DecisionProvider] | None = None) -> FastAPI:
         ["provider", "model_version"], registry=metrics,
     )
 
-    app = FastAPI(title="Servicio de inferencia", version="0.1.0")
+    app = FastAPI(title="Worksy Inference", version="0.1.0")
 
     @app.get("/healthz")
     def healthz() -> dict:

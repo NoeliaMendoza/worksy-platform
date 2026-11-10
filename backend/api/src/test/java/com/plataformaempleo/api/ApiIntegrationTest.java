@@ -92,7 +92,7 @@ class ApiIntegrationTest {
 
         var docs = http.getForEntity("/v3/api-docs", String.class);
         assertThat(docs.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(docs.getBody()).contains("Plataforma de empleo - API");
+        assertThat(docs.getBody()).contains("Worksy API");
     }
 
     private static String unique(String prefix) {
