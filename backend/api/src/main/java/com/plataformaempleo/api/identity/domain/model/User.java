@@ -44,6 +44,11 @@ public record User(
         return new User(UUID.randomUUID(), email, passwordHash, role, companyId, clock.instant(), null);
     }
 
+    /** Mismo usuario con otra contraseña (ya hasheada). */
+    public User withPasswordHash(String newHash) {
+        return new User(id, email, newHash, role, companyId, createdAt, deletedAt);
+    }
+
     public boolean isDeleted() {
         return deletedAt != null;
     }

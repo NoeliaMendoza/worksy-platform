@@ -20,9 +20,57 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  # Correo saliente (Gmail SMTP con contraseña de aplicación). Sin MAIL_HOST no se envían correos.
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+      mail.smtp.starttls.required: true
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
+
+# Autenticación. VALORES SUPUESTOS (15 min / 7 días): confirmar con el diseño técnico.
+worksy:
+  auth:
+    jwt-secret: ${JWT_SECRET:}
+    issuer: worksy-api
+    access-token-ttl: 15m
+    refresh-token-ttl: 7d
+    refresh-cookie-secure: ${AUTH_COOKIE_SECURE:true}
+    # VALOR SUPUESTO: confirmar con el diseño técnico.
+    password-reset-ttl: 30m
+    public-url: ${APP_PUBLIC_URL:http://localhost:5173}
+  # Proveedores externos: uno sin client-id queda desactivado.
+  oauth:
+    providers:
+      google:
+        client-id: ${GOOGLE_CLIENT_ID:}
+        client-secret: ${GOOGLE_CLIENT_SECRET:}
+      linkedin:
+        client-id: ${LINKEDIN_CLIENT_ID:}
+        client-secret: ${LINKEDIN_CLIENT_SECRET:}
+      github:
+        client-id: ${GITHUB_CLIENT_ID:}
+        client-secret: ${GITHUB_CLIENT_SECRET:}
+  mail:
+    from: ${MAIL_FROM:}
 
 server:
   port: 8080
+  # Detrás de un proxy (Vite en desarrollo, Nginx después) se usan X-Forwarded-* para construir URL públicas.
+  forward-headers-strategy: framework
+  # La sesión HTTP solo se usa durante la ida y vuelta al proveedor externo.
+  servlet:
+    session:
+      timeout: 10m
+      cookie:
+        http-only: true
+        same-site: lax
   shutdown: graceful
 
 management:
@@ -34,6 +82,10 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    # Un fallo del SMTP no debe marcar la API como caída: el correo es secundario.
+    mail:
+      enabled: false
 
 springdoc:
   api-docs:

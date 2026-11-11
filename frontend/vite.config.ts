@@ -12,7 +12,12 @@ export default defineConfig({
   server: {
     port: 5173,
     // La API se consume por /api y se reenvía al backend local (sin CORS en desarrollo).
-    proxy: { '/api': 'http://localhost:8080' },
+    // API_PROXY_TARGET permite apuntar a otra instancia (p. ej., una API de pruebas en otro puerto).
+    // changeOrigin: false conserva el Host del navegador y xfwd añade X-Forwarded-*: así la API construye
+    // las URL de regreso del login externo con la dirección del frontend, no con la suya.
+    proxy: {
+      '/api': { target: process.env.API_PROXY_TARGET ?? 'http://localhost:8080', changeOrigin: false, xfwd: true },
+    },
   },
   test: {
     environment: 'jsdom',
