@@ -1,32 +1,15 @@
-import {
-  BriefcaseBusiness,
-  LayoutGrid,
-  LogOut,
-  Menu,
-  MessageSquare,
-  Users,
-  Video,
-  X,
-  type LucideIcon,
-} from 'lucide-react'
+import { LogOut, Menu, X, type LucideIcon } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { Logo } from '@/components/logo'
 import { cn } from '@/lib/cn'
 
-type NavItem = { id: string; label: string; icon: LucideIcon }
+/** Opción de la navegación principal. Cada rol define las suyas. */
+export type NavItem = { id: string; label: string; icon: LucideIcon }
 
-const nav: NavItem[] = [
-  { id: 'inicio', label: 'Inicio', icon: LayoutGrid },
-  { id: 'vacantes', label: 'Vacantes', icon: BriefcaseBusiness },
-  { id: 'candidatos', label: 'Candidatos', icon: Users },
-  { id: 'entrevistas', label: 'Entrevistas', icon: Video },
-  { id: 'mensajes', label: 'Mensajes', icon: MessageSquare },
-]
-
-function NavList({ current }: { current: string }) {
+function NavList({ items, current }: { items: NavItem[]; current: string }) {
   return (
     <ul className="flex flex-col gap-1">
-      {nav.map(({ id, label, icon: Icon }) => {
+      {items.map(({ id, label, icon: Icon }) => {
         const active = id === current
         return (
           <li key={id}>
@@ -85,13 +68,15 @@ function UserCard({ account, onLogout }: { account?: ShellAccount; onLogout?: ()
 
 /** Estructura de la app: barra lateral navy en escritorio y barra superior con menú en móvil. */
 type AppShellProps = {
+  /** Navegación principal del rol actual. */
+  nav: NavItem[]
   current: string
   account?: ShellAccount
   onLogout?: () => void
   children: ReactNode
 }
 
-export function AppShell({ current, account, onLogout, children }: AppShellProps) {
+export function AppShell({ nav, current, account, onLogout, children }: AppShellProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuButton = useRef<HTMLButtonElement>(null)
 
@@ -110,7 +95,7 @@ export function AppShell({ current, account, onLogout, children }: AppShellProps
           <Logo />
         </div>
         <nav aria-label="Principal">
-          <NavList current={current} />
+          <NavList items={nav} current={current} />
         </nav>
         <div className="mt-auto">
           <UserCard account={account} onLogout={onLogout} />
@@ -143,7 +128,7 @@ export function AppShell({ current, account, onLogout, children }: AppShellProps
         </div>
         {menuOpen && (
           <nav id="menu-movil" aria-label="Principal" className="flex max-h-[calc(100dvh-3.5rem)] flex-col gap-4 overflow-y-auto overscroll-contain border-t border-white/10 px-4 pt-3 pb-5">
-            <NavList current={current} />
+            <NavList items={nav} current={current} />
             <UserCard account={account} onLogout={onLogout} />
           </nav>
         )}

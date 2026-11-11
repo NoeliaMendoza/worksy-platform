@@ -90,4 +90,37 @@ describe('App', () => {
     expect(screen.getAllByText('Reclutador/a').length).toBeGreaterThan(0)
     expect(screen.getAllByRole('button', { name: 'Cerrar sesión' }).length).toBeGreaterThan(0)
   })
+
+  function sessionAs(role: string, email: string) {
+    stubRefresh(
+      new Response(
+        JSON.stringify({
+          accessToken: 'jwt-sintetico',
+          tokenType: 'Bearer',
+          expiresAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+          user: { id: 'u-2', email, role, companyId: null, createdAt: '' },
+        }),
+        { status: 200 },
+      ),
+    )
+  }
+
+  it('una cuenta de candidato ve sus postulaciones y nunca el ranking de otras personas', async () => {
+    sessionAs('CANDIDATE', 'candidata@ejemplo.test')
+    render(<App />)
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Tus postulaciones')
+    expect(screen.queryByText(/Ranking de/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Valeria Quispe Romero')).not.toBeInTheDocument()
+    const nav = screen.getAllByRole('navigation', { name: 'Principal' })[0]!
+    expect(within(nav).getByRole('link', { name: 'Mis postulaciones' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).queryByRole('link', { name: 'Candidatos' })).not.toBeInTheDocument()
+    expect(screen.getAllByText('Candidato/a').length).toBeGreaterThan(0)
+  })
+
+  it('la administración de Worksy ve su propio inicio', async () => {
+    sessionAs('PLATFORM_ADMIN', 'admin@ejemplo.test')
+    render(<App />)
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Administración de Worksy')
+    expect(screen.queryByText(/Ranking de/)).not.toBeInTheDocument()
+  })
 })

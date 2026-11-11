@@ -174,7 +174,7 @@ describe('AppShell', () => {
     const { AppShell } = await import('@/components/app-shell')
     const user = userEvent.setup()
     render(
-      <AppShell current="vacantes">
+      <AppShell nav={[]} current="vacantes">
         <p>Contenido</p>
       </AppShell>,
     )
