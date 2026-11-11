@@ -121,7 +121,8 @@ public class AuthService {
                 .orElseThrow(AuthenticationFailedException::invalidRefresh);
     }
 
-    static boolean validEmail(String email) {
+    /** Formato de correo válido según el dominio, sin lanzar excepciones. */
+    public static boolean validEmail(String email) {
         try {
             User.normalizeEmail(email);
             return true;

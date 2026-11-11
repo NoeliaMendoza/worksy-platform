@@ -1,6 +1,7 @@
 package com.plataformaempleo.api.identity.domain.port.out;
 
 import com.plataformaempleo.api.identity.domain.model.User;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -13,4 +14,7 @@ public interface UserRepository {
 
     /** Busca solo usuarios activos (no borrados lógicamente). */
     Optional<User> findActiveByEmail(String email);
+
+    /** Usuarios activos de una empresa, del más antiguo al más reciente. */
+    List<User> findActiveByCompany(UUID companyId);
 }

@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -150,6 +151,11 @@ class AuthServiceTest {
         public Optional<User> findActiveByEmail(String email) {
             String normalized = User.normalizeEmail(email);
             return userStore.values().stream().filter(u -> !u.isDeleted() && u.email().equals(normalized)).findFirst();
+        }
+
+        @Override
+        public java.util.List<User> findActiveByCompany(UUID companyId) {
+            return userStore.values().stream().filter(u -> companyId.equals(u.companyId()) && !u.isDeleted()).toList();
         }
     }
 

@@ -2,6 +2,7 @@ package com.plataformaempleo.api.identity.infrastructure.persistence;
 
 import com.plataformaempleo.api.identity.domain.model.User;
 import com.plataformaempleo.api.identity.domain.port.out.UserRepository;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
@@ -34,6 +35,14 @@ class UserPersistenceAdapter implements UserRepository {
     public Optional<User> findActiveByEmail(String email) {
         return jpa.findByEmailAndDeletedAtIsNull(User.normalizeEmail(email))
                 .map(UserPersistenceAdapter::toDomain);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<User> findActiveByCompany(UUID companyId) {
+        return jpa.findByCompanyIdAndDeletedAtIsNullOrderByCreatedAtAsc(companyId).stream()
+                .map(UserPersistenceAdapter::toDomain)
+                .toList();
     }
 
     private static UserJpaEntity toEntity(User u) {

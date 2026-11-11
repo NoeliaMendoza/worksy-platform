@@ -43,6 +43,9 @@ class ExternalLoginServiceTest {
                 String n = User.normalizeEmail(email);
                 return userStore.values().stream().filter(u -> u.email().equals(n)).findFirst();
             }
+            @Override public List<User> findActiveByCompany(UUID companyId) {
+                return userStore.values().stream().filter(u -> companyId.equals(u.companyId())).toList();
+            }
         };
         ExternalIdentityRepository identities = new ExternalIdentityRepository() {
             @Override public Optional<ExternalIdentity> findByProviderAndSubject(String provider, String subject) {
