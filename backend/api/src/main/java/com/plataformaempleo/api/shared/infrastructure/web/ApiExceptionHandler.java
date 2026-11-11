@@ -54,13 +54,19 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return toResponse(e, null);
     }
 
-    /** auth.* → 401; *.taken → 409; resto de reglas de negocio → 400. */
+    /** auth.* → 401; access.* → 403; *.not-found → 404; *.taken → 409; resto de reglas de negocio → 400. */
     static HttpStatus statusFor(String code) {
         if (code == null) {
             return HttpStatus.BAD_REQUEST;
         }
         if (code.startsWith("auth.")) {
             return HttpStatus.UNAUTHORIZED;
+        }
+        if (code.startsWith("access.")) {
+            return HttpStatus.FORBIDDEN;
+        }
+        if (code.endsWith(".not-found")) {
+            return HttpStatus.NOT_FOUND;
         }
         if (code.endsWith(".taken")) {
             return HttpStatus.CONFLICT;
