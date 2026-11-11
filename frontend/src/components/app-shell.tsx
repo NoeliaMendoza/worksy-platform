@@ -2,11 +2,12 @@ import { LogOut, Menu, X, type LucideIcon } from 'lucide-react'
 import { useRef, useState, type ReactNode } from 'react'
 import { Logo } from '@/components/logo'
 import { cn } from '@/lib/cn'
+import { navigate } from '@/lib/router'
 
 /** Opción de la navegación principal. Cada rol define las suyas. */
 export type NavItem = { id: string; label: string; icon: LucideIcon }
 
-function NavList({ items, current }: { items: NavItem[]; current: string }) {
+function NavList({ items, current, onNavigate }: { items: NavItem[]; current: string; onNavigate?: () => void }) {
   return (
     <ul className="flex flex-col gap-1">
       {items.map(({ id, label, icon: Icon }) => {
@@ -14,7 +15,14 @@ function NavList({ items, current }: { items: NavItem[]; current: string }) {
         return (
           <li key={id}>
             <a
-              href={`#${id}`}
+              href={`/${id}`}
+              onClick={(e) => {
+                // Navega sin recargar; con Ctrl/Cmd o clic central se abre en otra pestaña como un enlace normal.
+                if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                e.preventDefault()
+                navigate(`/${id}`)
+                onNavigate?.()
+              }}
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 rounded-full px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-azure-300',
@@ -128,7 +136,7 @@ export function AppShell({ nav, current, account, onLogout, children }: AppShell
         </div>
         {menuOpen && (
           <nav id="menu-movil" aria-label="Principal" className="flex max-h-[calc(100dvh-3.5rem)] flex-col gap-4 overflow-y-auto overscroll-contain border-t border-white/10 px-4 pt-3 pb-5">
-            <NavList items={nav} current={current} />
+            <NavList items={nav} current={current} onNavigate={() => setMenuOpen(false)} />
             <UserCard account={account} onLogout={onLogout} />
           </nav>
         )}

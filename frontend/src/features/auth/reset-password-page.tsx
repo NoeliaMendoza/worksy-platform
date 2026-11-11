@@ -16,6 +16,8 @@ type Errors = { password?: string; confirm?: string }
 export function ResetPasswordPage() {
   const { params } = useLocation()
   const [token] = useState(() => params.get('token') ?? '')
+  // El mismo enlace sirve para activar una cuenta invitada por la empresa (?invitacion=1).
+  const [invitation] = useState(() => params.get('invitacion') === '1')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [errors, setErrors] = useState<Errors>({})
@@ -70,14 +72,31 @@ export function ResetPasswordPage() {
   return (
     <AuthLayout>
       <h1 className="text-3xl leading-tight font-light tracking-tight text-navy-900">
-        Elige una contraseña <span className="font-semibold">nueva</span>
+        {invitation ? (
+          <>
+            Activa tu <span className="font-semibold">cuenta</span>
+          </>
+        ) : (
+          <>
+            Elige una contraseña <span className="font-semibold">nueva</span>
+          </>
+        )}
       </h1>
 
       {done ? (
         <div className="mt-8 flex flex-col gap-6">
           <Notice tone="success" autoFocus>
-            <p className="font-semibold">Tu contraseña se cambió.</p>
-            <p className="mt-1">Por seguridad cerramos las sesiones abiertas en otros dispositivos.</p>
+            {invitation ? (
+              <>
+                <p className="font-semibold">Tu cuenta está activa.</p>
+                <p className="mt-1">Ya puedes iniciar sesión con tu correo y la contraseña que elegiste.</p>
+              </>
+            ) : (
+              <>
+                <p className="font-semibold">Tu contraseña se cambió.</p>
+                <p className="mt-1">Por seguridad cerramos las sesiones abiertas en otros dispositivos.</p>
+              </>
+            )}
           </Notice>
           <Button className="h-12 w-full text-base" onClick={() => navigate('/')}>
             Iniciar sesión
@@ -86,13 +105,19 @@ export function ResetPasswordPage() {
       ) : linkInvalid ? (
         <div className="mt-8 flex flex-col gap-6">
           <Notice tone="error" autoFocus>
-            El enlace no es válido o ya caducó. Los enlaces valen 30 minutos y funcionan una sola vez.
+            {invitation
+              ? 'La invitación no es válida o ya caducó. Las invitaciones valen 72 horas y funcionan una sola vez. Pide a la administración de tu empresa que te invite de nuevo.'
+              : 'El enlace no es válido o ya caducó. Los enlaces valen 30 minutos y funcionan una sola vez.'}
           </Notice>
-          <AppLink href="/recuperar">Pedir un enlace nuevo</AppLink>
+          {!invitation && <AppLink href="/recuperar">Pedir un enlace nuevo</AppLink>}
         </div>
       ) : (
         <>
-          <p className="mt-2 text-base text-ink-700">Al guardarla, se cerrarán tus sesiones abiertas.</p>
+          <p className="mt-2 text-base text-ink-700">
+            {invitation
+              ? 'Elige la contraseña con la que entrarás a Worksy.'
+              : 'Al guardarla, se cerrarán tus sesiones abiertas.'}
+          </p>
           {formError && (
             <Notice tone="error" autoFocus className="mt-8">
               {formError}
@@ -120,7 +145,7 @@ export function ResetPasswordPage() {
             />
             <Button type="submit" className="h-12 w-full text-base" disabled={submitting}>
               {submitting && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-              {submitting ? 'Guardando…' : 'Guardar contraseña'}
+              {submitting ? 'Guardando…' : invitation ? 'Activar cuenta' : 'Guardar contraseña'}
             </Button>
           </form>
         </>
