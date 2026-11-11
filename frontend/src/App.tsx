@@ -9,6 +9,10 @@ import { ResetPasswordPage } from '@/features/auth/reset-password-page'
 import { CandidateHome } from '@/features/home/candidate-home'
 import { navigationByRole, roleLabel } from '@/features/home/navigation'
 import { PlatformAdminHome } from '@/features/home/platform-admin-home'
+import { ComingSoon } from '@/features/home/coming-soon'
+import { RegisterCompanyPage } from '@/features/company/register-company-page'
+import { TeamPage } from '@/features/company/team-page'
+import type { ReactNode } from 'react'
 import { RankingView } from '@/features/ranking/ranking-view'
 import { useVacancyRanking } from '@/features/ranking/use-vacancy-ranking'
 import { useLocation } from '@/lib/router'
@@ -36,41 +40,57 @@ function Gate() {
   // Restablecer la contraseña funciona con o sin sesión: el enlace del correo puede abrirse en cualquier navegador.
   if (pathname === '/restablecer') return <ResetPasswordPage />
   if (state.status === 'checking') return <Splash />
-  if (state.status === 'anonymous') return pathname === '/recuperar' ? <ForgotPasswordPage /> : <LoginPage />
-  return <Home user={state.user} />
+  if (state.status === 'anonymous') {
+    if (pathname === '/recuperar') return <ForgotPasswordPage />
+    if (pathname === '/registro-empresa') return <RegisterCompanyPage />
+    return <LoginPage />
+  }
+  return <Home user={state.user} pathname={pathname} />
 }
 
 /**
  * Cada rol ve solo lo suyo. Es una separación de interfaz: la API debe aplicar la misma regla
  * en cada endpoint (los datos de candidatos nunca deben llegar a una cuenta de candidato).
  */
-function Home({ user }: { user: AuthUser }) {
+function Home({ user, pathname }: { user: AuthUser; pathname: string }) {
   const { logout } = useAuth()
+  const nav = navigationByRole[user.role]
+  const section = pathname.replace(/^\/+|\/+$/g, '')
   const shell = {
-    nav: navigationByRole[user.role],
+    nav,
     account: { name: user.email, detail: roleLabel[user.role] },
     onLogout: () => void logout(),
   }
+  const page = pageFor(user.role, section)
+  // Una ruta del menú sin pantalla todavía: se marca en el menú y se avisa con claridad.
+  const pending = nav.find((item) => item.id === section && page === null)
 
-  if (user.role === 'CANDIDATE') {
+  if (pending) {
     return (
-      <AppShell {...shell} current="postulaciones">
-        <CandidateHome />
+      <AppShell {...shell} current={pending.id}>
+        <ComingSoon section={pending.label} />
       </AppShell>
     )
   }
-  if (user.role === 'PLATFORM_ADMIN') {
-    return (
-      <AppShell {...shell} current="empresas">
-        <PlatformAdminHome />
-      </AppShell>
-    )
-  }
+  const resolved = page ?? pageFor(user.role, '')!
   return (
-    <AppShell {...shell} current="vacantes">
-      <RecruiterRanking />
+    <AppShell {...shell} current={resolved.current}>
+      {resolved.element}
     </AppShell>
   )
+}
+
+/** Pantalla de cada ruta por rol. null = la ruta existe en el menú pero aún no tiene pantalla. */
+function pageFor(role: AuthUser['role'], section: string): { current: string; element: ReactNode } | null {
+  if (role === 'CANDIDATE') {
+    return section === '' || section === 'postulaciones' ? { current: 'postulaciones', element: <CandidateHome /> } : null
+  }
+  if (role === 'PLATFORM_ADMIN') {
+    return section === '' || section === 'empresas' ? { current: 'empresas', element: <PlatformAdminHome /> } : null
+  }
+  if (section === 'equipo') return { current: 'equipo', element: <TeamPage /> }
+  if (section === '' || section === 'vacantes') return { current: 'vacantes', element: <RecruiterRanking /> }
+  return null
 }
 
 function RecruiterRanking() {

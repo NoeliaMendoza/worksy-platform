@@ -5,6 +5,7 @@ import {
   LayoutGrid,
   MessageSquare,
   ShieldCheck,
+  UserCog,
   Users,
   Video,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ const recruiting: NavItem[] = [
   { id: 'inicio', label: 'Inicio', icon: LayoutGrid },
   { id: 'vacantes', label: 'Vacantes', icon: BriefcaseBusiness },
   { id: 'candidatos', label: 'Candidatos', icon: Users },
+  { id: 'equipo', label: 'Equipo', icon: UserCog },
   { id: 'entrevistas', label: 'Entrevistas', icon: Video },
   { id: 'mensajes', label: 'Mensajes', icon: MessageSquare },
 ]
