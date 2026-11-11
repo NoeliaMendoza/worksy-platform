@@ -62,6 +62,7 @@ class SecurityConfig {
                                 "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/providers").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/companies").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/vacancies", "/api/v1/vacancies/*").permitAll()
                         .requestMatchers(OAuthClients.AUTHORIZATION_BASE + "/**", OAuthClients.CALLBACK_BASE + "/**")
                         .permitAll()
                         .requestMatchers("/actuator/health/**", "/actuator/info", "/actuator/prometheus").permitAll()
