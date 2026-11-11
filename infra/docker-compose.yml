@@ -78,7 +78,8 @@ services:
       timeout: 3s
       retries: 20
 
-  # Crea el bucket privado de CV y termina.
+  # Crea el bucket privado de CV y el usuario de servicio de la API (solo puede leer, escribir y
+  # borrar objetos de ese bucket), y termina. Es idempotente: se puede ejecutar varias veces.
   minio-init:
     # Reutiliza la imagen de MinIO, que también incluye el cliente mc.
     image: plataforma-empleo/minio:RELEASE.2025-10-15T17-29-55Z
@@ -89,13 +90,22 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET_CV: ${MINIO_BUCKET_CV:-cv-documents}
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY:?definir en .env}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY:?definir en .env}
+    volumes:
+      - ./minio/cv-policy.json:/policy/cv-policy.json:ro
     entrypoint: ["/bin/sh", "-c"]
     command:
       - >
         mc alias set local http://minio:9000 "$$MINIO_ROOT_USER" "$$MINIO_ROOT_PASSWORD" &&
         mc mb --ignore-existing "local/$$MINIO_BUCKET_CV" &&
         mc anonymous set none "local/$$MINIO_BUCKET_CV" &&
-        echo "bucket listo: $$MINIO_BUCKET_CV"
+        sed "s/BUCKET_CV/$$MINIO_BUCKET_CV/" /policy/cv-policy.json > /tmp/cv-policy.json &&
+        mc admin policy create local worksy-cv /tmp/cv-policy.json &&
+        mc admin user add local "$$STORAGE_ACCESS_KEY" "$$STORAGE_SECRET_KEY" &&
+        { mc admin policy attach local worksy-cv --user "$$STORAGE_ACCESS_KEY" ||
+          mc admin user info local "$$STORAGE_ACCESS_KEY" | grep -q worksy-cv; } &&
+        echo "bucket y usuario de servicio listos: $$MINIO_BUCKET_CV"
     restart: "no"
 
   # ---------------- Servicios de la aplicación (perfil dev) ----------------
@@ -125,11 +135,17 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      STORAGE_BUCKET: ${MINIO_BUCKET_CV:-cv-documents}
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8080}:8080"
     depends_on:
       postgres:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   screening-worker:
     profiles: ["dev"]

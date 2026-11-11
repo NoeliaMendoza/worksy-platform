@@ -20,6 +20,11 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  # CV en PDF: máximo 5 MB (sección 5 del diseño). La petición admite un poco más por las cabeceras del multipart.
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
   # Correo saliente (Gmail SMTP con contraseña de aplicación). Sin MAIL_HOST no se envían correos.
   mail:
     host: ${MAIL_HOST:}
@@ -59,6 +64,13 @@ worksy:
         client-secret: ${GITHUB_CLIENT_SECRET:}
   mail:
     from: ${MAIL_FROM:}
+  # Almacenamiento de CV compatible con S3 (MinIO). Usuario de servicio limitado al bucket, no el administrador.
+  storage:
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    region: ${STORAGE_REGION:us-east-1}
+    access-key: ${STORAGE_ACCESS_KEY:}
+    secret-key: ${STORAGE_SECRET_KEY:}
+    bucket: ${STORAGE_BUCKET:cv-documents}
 
 server:
   port: 8080
@@ -72,6 +84,10 @@ server:
         http-only: true
         same-site: lax
   shutdown: graceful
+  tomcat:
+    # Al rechazar un archivo grande, Tomcat descarta el resto del cuerpo para poder responder 413 con un
+    # mensaje claro; con el valor por defecto (2 MB) cortaba la conexión. Acotado justo encima del multipart.
+    max-swallow-size: 7MB
 
 management:
   endpoints:

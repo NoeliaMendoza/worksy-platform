@@ -26,6 +26,14 @@ public record Actor(UUID userId, Role role, UUID companyId) {
         throw forbidden();
     }
 
+    /** Exige el rol indicado; devuelve el id del usuario. */
+    public UUID requireRole(Role required) {
+        if (role != required) {
+            throw forbidden();
+        }
+        return userId;
+    }
+
     public static DomainException forbidden() {
         return new DomainException("access.denied", "No tienes permiso para hacer esto");
     }
