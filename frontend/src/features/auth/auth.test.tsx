@@ -233,3 +233,34 @@ describe('ResetPasswordPage', () => {
     expect(screen.getByRole('link', { name: 'Pedir un enlace nuevo' })).toBeInTheDocument()
   })
 })
+
+describe('Cerrar sesión sin conexión', () => {
+  it('cierra la sesión local y no deja errores sin manejar', async () => {
+    const { useAuth } = await import('./auth-context')
+    const tokens = {
+      accessToken: 'jwt-sintetico',
+      tokenType: 'Bearer',
+      expiresAt: new Date(Date.now() + 900_000).toISOString(),
+      user: { id: 'u-1', email: 'a@ejemplo.test', role: 'CANDIDATE', companyId: null, createdAt: '' },
+    }
+    fetchMock.mockImplementation((url: string) =>
+      url.endsWith('/logout') ? Promise.reject(new TypeError('Failed to fetch')) : Promise.resolve(json(200, tokens)),
+    )
+    function Probe() {
+      const { state, logout } = useAuth()
+      return (
+        <button type="button" onClick={() => void logout()}>
+          {state.status}
+        </button>
+      )
+    }
+    const user = userEvent.setup()
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    )
+    await user.click(await screen.findByRole('button', { name: 'authenticated' }))
+    expect(await screen.findByRole('button', { name: 'anonymous' })).toBeInTheDocument()
+  })
+})

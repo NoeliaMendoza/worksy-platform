@@ -7,11 +7,15 @@ import { ForgotPasswordPage } from '@/features/auth/forgot-password-page'
 import { LoginPage } from '@/features/auth/login-page'
 import { ResetPasswordPage } from '@/features/auth/reset-password-page'
 import { CandidateHome } from '@/features/home/candidate-home'
+import { CvPage } from '@/features/cv/cv-page'
 import { navigationByRole, roleLabel } from '@/features/home/navigation'
 import { PlatformAdminHome } from '@/features/home/platform-admin-home'
 import { ComingSoon } from '@/features/home/coming-soon'
 import { RegisterCompanyPage } from '@/features/company/register-company-page'
 import { TeamPage } from '@/features/company/team-page'
+import { CompanyVacanciesPage } from '@/features/vacancy/company-vacancies-page'
+import { CompanyVacancyPage, NewVacancyPage, VacancyRankingPage } from '@/features/vacancy/company-vacancy-pages'
+import { PublicLayout, PublicVacanciesPage, PublicVacancyPage } from '@/features/vacancy/public-vacancy-pages'
 import type { ReactNode } from 'react'
 import { RankingView } from '@/features/ranking/ranking-view'
 import { useVacancyRanking } from '@/features/ranking/use-vacancy-ranking'
@@ -43,6 +47,11 @@ function Gate() {
   if (state.status === 'anonymous') {
     if (pathname === '/recuperar') return <ForgotPasswordPage />
     if (pathname === '/registro-empresa') return <RegisterCompanyPage />
+    const [first, id] = pathname.split('/').filter(Boolean)
+    if (first === 'vacantes') {
+      // Las vacantes publicadas se ven sin iniciar sesión.
+      return <PublicLayout>{id ? <PublicVacancyPage id={id} signedIn={false} /> : <PublicVacanciesPage />}</PublicLayout>
+    }
     return <LoginPage />
   }
   return <Home user={state.user} pathname={pathname} />
@@ -63,7 +72,7 @@ function Home({ user, pathname }: { user: AuthUser; pathname: string }) {
   }
   const page = pageFor(user.role, section)
   // Una ruta del menú sin pantalla todavía: se marca en el menú y se avisa con claridad.
-  const pending = nav.find((item) => item.id === section && page === null)
+  const pending = nav.find((item) => item.id === section.split('/')[0] && page === null)
 
   if (pending) {
     return (
@@ -82,15 +91,46 @@ function Home({ user, pathname }: { user: AuthUser; pathname: string }) {
 
 /** Pantalla de cada ruta por rol. null = la ruta existe en el menú pero aún no tiene pantalla. */
 function pageFor(role: AuthUser['role'], section: string): { current: string; element: ReactNode } | null {
+  const [first = '', id, sub] = section.split('/')
   if (role === 'CANDIDATE') {
-    return section === '' || section === 'postulaciones' ? { current: 'postulaciones', element: <CandidateHome /> } : null
+    if (first === '' || first === 'postulaciones') return { current: 'postulaciones', element: <CandidateHome /> }
+    if (first === 'mi-cv') return { current: 'mi-cv', element: <CvPage /> }
+    if (first === 'vacantes')
+      return { current: 'vacantes', element: id ? <PublicVacancyPage key={id} id={id} signedIn /> : <PublicVacanciesPage /> }
+    return null
   }
   if (role === 'PLATFORM_ADMIN') {
-    return section === '' || section === 'empresas' ? { current: 'empresas', element: <PlatformAdminHome /> } : null
+    return first === '' || first === 'empresas' ? { current: 'empresas', element: <PlatformAdminHome /> } : null
   }
-  if (section === 'equipo') return { current: 'equipo', element: <TeamPage /> }
-  if (section === '' || section === 'vacantes') return { current: 'vacantes', element: <RecruiterRanking /> }
+  if (first === 'equipo') return { current: 'equipo', element: <TeamPage /> }
+  if (first === '' || first === 'vacantes') {
+    const element = !id ? (
+      <CompanyVacanciesPage />
+    ) : id === 'nueva' ? (
+      <NewVacancyPage />
+    ) : id === 'ejemplo' ? (
+      <ExampleRanking />
+    ) : sub === 'ranking' ? (
+      <VacancyRankingPage key={id} id={id} />
+    ) : (
+      <CompanyVacancyPage key={id} id={id} />
+    )
+    return { current: 'vacantes', element }
+  }
   return null
+}
+
+/** Ranking de ejemplo con datos sintéticos: muestra el diseño completo mientras no hay CV reales. */
+function ExampleRanking() {
+  return (
+    <>
+      <p className="mx-4 mt-6 rounded-card bg-mid-100 px-4 py-3 text-sm text-mid-700 sm:mx-8">
+        <strong>Ejemplo con datos sintéticos.</strong> Ninguna persona ni empresa es real; sirve para ver cómo será el
+        ranking cuando lleguen CV.
+      </p>
+      <RecruiterRanking />
+    </>
+  )
 }
 
 function RecruiterRanking() {
