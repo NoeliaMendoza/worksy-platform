@@ -26,6 +26,10 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+      # MinIO ya no publica imágenes: las pruebas de CV usan la misma imagen compilada que Docker Compose.
+      - name: Construir la imagen de MinIO para las pruebas
+        working-directory: infra/minio
+        run: docker build -t plataforma-empleo/minio:RELEASE.2025-10-15T17-29-55Z .
       - name: Compilar y probar (Testcontainers usa el Docker del runner)
         run: ./mvnw -B verify
       - name: Publicar reportes de pruebas

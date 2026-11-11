@@ -35,6 +35,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <!-- Cliente S3: habla con MinIO hoy y con un almacenamiento S3 gestionado en producción. -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.58.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             <dependency>
                 <groupId>com.plataformaempleo</groupId>
                 <artifactId>common</artifactId>
