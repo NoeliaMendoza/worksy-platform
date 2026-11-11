@@ -16,10 +16,12 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +31,8 @@ class CvServiceTest {
     private final Clock clock = Clock.fixed(Instant.parse("2026-11-11T10:00:00Z"), ZoneOffset.UTC);
     private final InMemoryDocuments documents = new InMemoryDocuments();
     private final InMemoryStorage storage = new InMemoryStorage();
-    private final CvService service = new CvService(documents, storage, clock);
+    private final Set<UUID> inUse = new HashSet<>();
+    private final CvService service = new CvService(documents, storage, inUse::contains, clock);
 
     private final Actor candidate = new Actor(UUID.randomUUID(), Role.CANDIDATE, null);
 
@@ -101,6 +104,16 @@ class CvServiceTest {
         storage.failOnDelete = true;
 
         assertCode(() -> service.delete(candidate, doc.id()), "storage.unavailable");
+        assertThat(documents.rows).containsKey(doc.id());
+    }
+
+    @Test
+    void unCvEnUnaPostulacionNoSeBorraYSuArchivoQuedaIntacto() {
+        CvDocument doc = service.upload(candidate, SyntheticPdf.of("en-uso"));
+        inUse.add(doc.id());
+
+        assertCode(() -> service.delete(candidate, doc.id()), "cv.in-use");
+        assertThat(storage.objects).containsKey(doc.storageKey());
         assertThat(documents.rows).containsKey(doc.id());
     }
 
