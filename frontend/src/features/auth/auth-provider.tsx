@@ -47,6 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await api.logout()
+    } catch {
+      // Sin conexión o API caída: la sesión se cierra igual en este navegador (el token de acceso se descarta
+      // y el de refresco caducará). No se propaga el error para no dejar una promesa rechazada sin manejar.
     } finally {
       setState({ status: 'anonymous' })
     }

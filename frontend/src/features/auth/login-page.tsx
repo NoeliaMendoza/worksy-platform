@@ -132,6 +132,8 @@ export function LoginPage() {
       )}
 
       <p className="mt-7 border-t border-ink-100 pt-5 text-sm leading-relaxed text-ink-500">
+        ¿Buscas empleo? <AppLink href="/vacantes">Ver vacantes abiertas</AppLink>
+        <br />
         ¿Tu empresa aún no usa Worksy? <AppLink href="/registro-empresa">Regístrala</AppLink>
       </p>
     </AuthLayout>

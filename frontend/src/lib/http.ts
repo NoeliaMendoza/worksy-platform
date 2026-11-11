@@ -1,7 +1,8 @@
 import { ApiError } from '@/features/auth/api'
 
 type Options = {
-  method?: 'GET' | 'POST' | 'PUT'
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  /** Objeto JSON, o FormData para subir archivos (el navegador pone el Content-Type del multipart). */
   body?: unknown
   /** Token de acceso; se envía como Authorization: Bearer. */
   token?: string
@@ -12,8 +13,9 @@ type Options = {
  * y los fallos de red en ApiError(0, 'network').
  */
 export async function apiRequest<T>(path: string, { method = 'GET', body, token }: Options = {}): Promise<T> {
+  const isForm = body instanceof FormData
   const headers: Record<string, string> = { Accept: 'application/json, application/problem+json' }
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
 
   let response: Response
@@ -22,7 +24,7 @@ export async function apiRequest<T>(path: string, { method = 'GET', body, token 
       method,
       headers,
       credentials: 'same-origin',
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     })
   } catch {
     throw new ApiError(0, 'network', 'No se pudo conectar con el servidor.')

@@ -1,5 +1,6 @@
 import { Building2, CalendarDays, Cpu, FileSearch, Inbox, MapPin, RefreshCw, ServerCrash, UserCheck } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { AppLink } from '@/components/app-link'
 import { CandidateRow } from '@/components/candidate-row'
 import { FilterBar } from '@/components/filter-bar'
 import { StateMessage } from '@/components/state-message'
@@ -14,7 +15,11 @@ type RankingViewProps = {
   state: RankingState
   onRetry: () => void
   onDecide: (candidateId: string, decision: Decision | null) => void
+  /** Estado vacío propio (p. ej., hay postulaciones pero aún no hay preselección). */
+  empty?: EmptyState
 }
+
+type EmptyState = { title: string; description: string; action?: ReactNode }
 
 const filters: DecisionFilter[] = ['todos', 'sin_revisar', 'preseleccionado', 'en_espera', 'descartado']
 
@@ -25,7 +30,7 @@ function matches(c: RankedCandidate, f: DecisionFilter) {
 }
 
 /** Pantalla de referencia: ranking de CV de una vacante con decisión humana. */
-export function RankingView({ state, onRetry, onDecide }: RankingViewProps) {
+export function RankingView({ state, onRetry, onDecide, empty }: RankingViewProps) {
   const [announcement, setAnnouncement] = useState('')
 
   function handleDecide(c: RankedCandidate, d: Decision | null) {
@@ -62,7 +67,7 @@ export function RankingView({ state, onRetry, onDecide }: RankingViewProps) {
       )}
 
       {state.status === 'ready' && (
-        <Ready vacancy={state.data.vacancy} candidates={state.data.candidates} onDecide={handleDecide} />
+        <Ready vacancy={state.data.vacancy} candidates={state.data.candidates} onDecide={handleDecide} empty={empty} />
       )}
     </div>
   )
@@ -74,9 +79,9 @@ function VacancyHeader({ vacancy }: { vacancy: Vacancy }) {
       <nav aria-label="Ruta de navegación" className="text-sm text-ink-500">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
-            <a href="#vacantes" className="rounded hover:text-navy-900 hover:underline">
+            <AppLink href="/vacantes" className="font-normal text-ink-500 hover:text-navy-900">
               Vacantes
-            </a>
+            </AppLink>
           </li>
           <li aria-hidden="true">/</li>
           <li aria-current="page" className="text-ink-700">
@@ -209,10 +214,12 @@ function Ready({
   vacancy,
   candidates,
   onDecide,
+  empty,
 }: {
   vacancy: Vacancy
   candidates: RankedCandidate[]
   onDecide: (c: RankedCandidate, d: Decision | null) => void
+  empty?: EmptyState
 }) {
   const [filter, setFilter] = useState<DecisionFilter>('todos')
   const sorted = useMemo(() => [...candidates].sort((a, b) => a.rank - b.rank), [candidates])
@@ -230,8 +237,12 @@ function Ready({
       {candidates.length === 0 ? (
         <StateMessage
           icon={Inbox}
-          title="Todavía no hay CV para esta vacante"
-          description="Cuando lleguen postulaciones, el modelo las analizará y aparecerán aquí ordenadas por compatibilidad, listas para tu revisión."
+          title={empty?.title ?? "Todavía no hay CV para esta vacante"}
+          description={
+            empty?.description ??
+            "Cuando lleguen postulaciones, el modelo las analizará y aparecerán aquí ordenadas por compatibilidad, listas para tu revisión."
+          }
+          action={empty?.action}
         />
       ) : (
         <>

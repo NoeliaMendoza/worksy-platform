@@ -62,7 +62,10 @@ describe('RankingView (panel del reclutador)', () => {
 })
 
 describe('App', () => {
-  afterEach(() => vi.unstubAllGlobals())
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    window.history.replaceState(null, '', '/')
+  })
 
   function stubRefresh(response: Response) {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(response)))
@@ -83,8 +86,11 @@ describe('App', () => {
       user: { id: 'u-1', email: 'reclutadora@ejemplo.test', role: 'RECRUITER', companyId: 'c-1', createdAt: '' },
     }
     stubRefresh(new Response(JSON.stringify(tokens), { status: 200 }))
+    // El ranking con candidatos sintéticos vive en la vacante de ejemplo; en "/" está la lista real de vacantes.
+    window.history.replaceState(null, '', '/vacantes/ejemplo')
     render(<App />)
     expect(await screen.findByRole('heading', { level: 1 }, { timeout: 2000 })).toHaveTextContent('Java')
+    expect(screen.getByText('Ejemplo con datos sintéticos.')).toBeInTheDocument()
     expect(screen.getAllByRole('navigation', { name: 'Principal' }).length).toBeGreaterThan(0)
     expect(screen.getAllByText('reclutadora@ejemplo.test').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Reclutador/a').length).toBeGreaterThan(0)

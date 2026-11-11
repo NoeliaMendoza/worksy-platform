@@ -1,5 +1,13 @@
-import { FileSearch, ListOrdered, UserCheck } from 'lucide-react'
+import { Building2, ChevronRight, FileSearch, ListOrdered, UserCheck } from 'lucide-react'
 import { StateMessage } from '@/components/state-message'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { useAuth } from '@/features/auth/auth-context'
+import { applicationsApi, type MyApplication } from '@/features/application/api'
+import { formatDate } from '@/features/vacancy/labels'
+import { LoadError, LoadingRows } from '@/features/vacancy/resource-states'
+import { navigate } from '@/lib/router'
+import { useResource } from '@/lib/use-resource'
 
 const steps = [
   {
@@ -16,6 +24,10 @@ const steps = [
 
 /** Inicio de la persona candidata: sus postulaciones. Nunca muestra rankings ni datos de otras personas. */
 export function CandidateHome() {
+  const { state: auth } = useAuth()
+  const token = auth.status === 'authenticated' ? auth.accessToken : ''
+  const { state, retry } = useResource(() => applicationsApi.mine(token), `mias:${token}`, 'No se pudieron cargar tus postulaciones.')
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
       <header>
@@ -27,11 +39,34 @@ export function CandidateHome() {
         </p>
       </header>
 
-      <StateMessage
-        icon={FileSearch}
-        title="Todavía no tienes postulaciones"
-        description="Cuando las empresas publiquen vacantes en Worksy, podrás postularte desde aquí y seguir cada proceso."
-      />
+      {state.status === 'loading' && <LoadingRows rows={2} />}
+      {state.status === 'error' && (
+        <LoadError title="No se pudieron cargar tus postulaciones" message={state.message} onRetry={retry} />
+      )}
+      {state.status === 'ready' &&
+        (state.data.length === 0 ? (
+          <StateMessage
+            icon={FileSearch}
+            title="Todavía no tienes postulaciones"
+            description="Sube tu CV y postúlate desde el detalle de cualquier vacante abierta. Aquí seguirás cada proceso."
+            action={
+              <div className="flex flex-wrap justify-center gap-3">
+                <Button onClick={() => navigate('/vacantes')}>Ver vacantes</Button>
+                <Button variant="secondary" onClick={() => navigate('/mi-cv')}>
+                  Subir mi CV
+                </Button>
+              </div>
+            }
+          />
+        ) : (
+          <ul aria-label="Tus postulaciones" className="divide-y divide-ink-100 rounded-card bg-white shadow-soft">
+            {state.data.map((a) => (
+              <li key={a.id}>
+                <ApplicationRow application={a} />
+              </li>
+            ))}
+          </ul>
+        ))}
 
       <section aria-labelledby="como-se-revisa" className="rounded-card bg-azure-100 p-6">
         <h2 id="como-se-revisa" className="text-base font-semibold text-navy-900">
@@ -52,5 +87,40 @@ export function CandidateHome() {
         </ul>
       </section>
     </div>
+  )
+}
+
+function ApplicationRow({ application: a }: { application: MyApplication }) {
+  const open = a.vacancyStatus === 'PUBLISHED'
+  const body = (
+    <>
+      <div className="min-w-0 flex-1">
+        <p className="text-base font-semibold text-ink-900">{a.vacancyTitle}</p>
+        <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
+          <span className="inline-flex items-center gap-1">
+            <Building2 className="size-3.5" aria-hidden="true" />
+            {a.companyName}
+          </span>
+          <span>Te postulaste el {formatDate(a.appliedAt)}</span>
+        </p>
+      </div>
+      <Badge tone={open ? 'azure' : 'neutral'}>{open ? 'Recibida' : 'Vacante cerrada'}</Badge>
+    </>
+  )
+  // Una vacante cerrada ya no es pública: la fila queda como registro, sin enlace.
+  if (!open) return <div className="flex items-center gap-4 px-5 py-4 sm:px-6">{body}</div>
+  return (
+    <a
+      href={`/vacantes/${a.vacancyId}`}
+      onClick={(e) => {
+        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+        e.preventDefault()
+        navigate(`/vacantes/${a.vacancyId}`)
+      }}
+      className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-azure-50 sm:px-6"
+    >
+      {body}
+      <ChevronRight className="size-5 shrink-0 text-ink-300 group-hover:text-navy-700" aria-hidden="true" />
+    </a>
   )
 }
