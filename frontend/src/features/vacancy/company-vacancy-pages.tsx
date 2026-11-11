@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
 import { useAuth } from '@/features/auth/auth-context'
+import { applicationsApi } from '@/features/application/api'
+import { ReceivedApplications } from '@/features/application/received-applications'
 import { RankingView } from '@/features/ranking/ranking-view'
 import type { Vacancy as RankingVacancy } from '@/features/ranking/types'
 import type { RankingState } from '@/features/ranking/use-vacancy-ranking'
@@ -172,6 +174,7 @@ function PublishedVacancy({
         </div>
       )}
 
+      <ReceivedApplications token={token} vacancyId={v.id} />
       <VacancySummary vacancy={v} />
     </>
   )
@@ -238,7 +241,7 @@ export function CriteriaList({ criteria, title = 'Qué se evalúa en cada CV' }:
 export function VacancyRankingPage({ id }: { id: string }) {
   const token = useToken()
   const { state, retry } = useResource(
-    () => Promise.all([companyVacancies.get(token, id), myCompany(token)]),
+    () => Promise.all([companyVacancies.get(token, id), myCompany(token), applicationsApi.forVacancy(token, id)]),
     `ranking:${id}:${token}`,
     'No se pudo cargar la vacante.',
   )
@@ -248,7 +251,17 @@ export function VacancyRankingPage({ id }: { id: string }) {
       : state.status === 'error'
         ? { status: 'error', message: state.message }
         : { status: 'loading' }
-  return <RankingView state={ranking} onRetry={retry} onDecide={() => {}} />
+  const received = state.status === 'ready' ? state.data[2].length : 0
+  // Hay postulaciones pero aún no hay preselección: se dice tal cual y se lleva a donde se pueden ver.
+  const empty =
+    received > 0
+      ? {
+          title: received === 1 ? '1 postulación espera la preselección' : `${received} postulaciones esperan la preselección`,
+          description: 'La preselección automática todavía no está activa. Mientras tanto, puedes ver quién se postuló en la vacante.',
+          action: <Button onClick={() => navigate(`/vacantes/${id}`)}>Ver postulaciones</Button>,
+        }
+      : undefined
+  return <RankingView state={ranking} onRetry={retry} onDecide={() => {}} empty={empty} />
 }
 
 function toRankingVacancy(v: CompanyVacancy, companyName: string): RankingVacancy {
