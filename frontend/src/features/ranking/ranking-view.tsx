@@ -1,5 +1,6 @@
 import { Building2, CalendarDays, Cpu, FileSearch, Inbox, MapPin, RefreshCw, ServerCrash, UserCheck } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { AppLink } from '@/components/app-link'
 import { CandidateRow } from '@/components/candidate-row'
 import { FilterBar } from '@/components/filter-bar'
 import { StateMessage } from '@/components/state-message'
@@ -74,9 +75,9 @@ function VacancyHeader({ vacancy }: { vacancy: Vacancy }) {
       <nav aria-label="Ruta de navegación" className="text-sm text-ink-500">
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
-            <a href="#vacantes" className="rounded hover:text-navy-900 hover:underline">
+            <AppLink href="/vacantes" className="font-normal text-ink-500 hover:text-navy-900">
               Vacantes
-            </a>
+            </AppLink>
           </li>
           <li aria-hidden="true">/</li>
           <li aria-current="page" className="text-ink-700">
