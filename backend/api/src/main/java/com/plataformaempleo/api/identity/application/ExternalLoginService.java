@@ -3,6 +3,7 @@ package com.plataformaempleo.api.identity.application;
 import com.plataformaempleo.api.identity.application.AuthService.AuthSession;
 import com.plataformaempleo.api.identity.domain.model.ExternalIdentity;
 import com.plataformaempleo.api.identity.domain.model.Role;
+import com.plataformaempleo.api.identity.domain.model.SecureTokens;
 import com.plataformaempleo.api.identity.domain.model.User;
 import com.plataformaempleo.api.identity.domain.port.out.ExternalIdentityRepository;
 import com.plataformaempleo.api.identity.domain.port.out.PasswordHasher;
@@ -56,7 +57,7 @@ public class ExternalLoginService {
         User user = users.findActiveByEmail(profile.email())
                 .orElseGet(() -> users.save(User.register(profile.email(),
                         // Contraseña aleatoria que nadie conoce: para usar correo y contraseña, la persona la restablece.
-                        hasher.hash(UUID.randomUUID() + ":" + UUID.randomUUID()),
+                        hasher.hash(SecureTokens.newSecret()),
                         Role.CANDIDATE, null, clock)));
         identities.save(ExternalIdentity.link(user.id(), profile.provider(), profile.subject(), profile.email(),
                 clock.instant()));

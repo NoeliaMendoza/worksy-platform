@@ -47,8 +47,18 @@ class RefreshTokenTest {
         PasswordPolicy.validate("diez-chars");
         assertThatThrownBy(() -> PasswordPolicy.validate("corta"))
                 .isInstanceOf(DomainException.class)
-                .hasMessageContaining("entre 10 y 128");
-        assertThatThrownBy(() -> PasswordPolicy.validate("x".repeat(129))).isInstanceOf(DomainException.class);
+                .hasMessageContaining("entre 10 y 64");
+        PasswordPolicy.validate("x".repeat(64));
+        assertThatThrownBy(() -> PasswordPolicy.validate("x".repeat(65))).isInstanceOf(DomainException.class);
         assertThatThrownBy(() -> PasswordPolicy.validate("          ")).isInstanceOf(DomainException.class);
+    }
+
+    @Test
+    void laContrasenaNoSuperaLos72BytesQueAdmiteBcrypt() {
+        // 40 caracteres con tilde = 80 bytes en UTF-8: dentro del límite de caracteres, fuera del de bytes.
+        assertThatThrownBy(() -> PasswordPolicy.validate("ñ".repeat(40)))
+                .isInstanceOf(DomainException.class)
+                .hasMessageContaining("demasiado larga");
+        PasswordPolicy.validate("ñ".repeat(36)); // 72 bytes exactos
     }
 }

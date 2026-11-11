@@ -199,7 +199,7 @@ describe('ResetPasswordPage', () => {
 
     await user.type(screen.getByLabelText('Contraseña nueva'), 'corta')
     await user.click(screen.getByRole('button', { name: 'Guardar contraseña' }))
-    expect(screen.getByLabelText('Contraseña nueva')).toHaveAccessibleDescription(/Debe tener entre 10 y 128/)
+    expect(screen.getByLabelText('Contraseña nueva')).toHaveAccessibleDescription(/Debe tener entre 10 y 64/)
 
     await user.clear(screen.getByLabelText('Contraseña nueva'))
     await user.type(screen.getByLabelText('Contraseña nueva'), 'nueva-frase-larga')

@@ -134,7 +134,7 @@ export function loginErrorMessage(error: unknown): string {
 export function resetErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'password.reset.invalid') return 'El enlace no es válido o ya caducó. Pide uno nuevo.'
-    if (error.code === 'user.password.invalid') return 'La contraseña debe tener entre 10 y 128 caracteres.'
+    if (error.code === 'user.password.invalid') return error.message || 'La contraseña no cumple los requisitos.'
     if (error.status === 0) return NETWORK
   }
   return 'No se pudo cambiar la contraseña. Vuelve a intentarlo.'
