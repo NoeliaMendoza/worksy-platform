@@ -1,5 +1,7 @@
 import { FileSearch, ListOrdered, UserCheck } from 'lucide-react'
 import { StateMessage } from '@/components/state-message'
+import { Button } from '@/components/ui/button'
+import { navigate } from '@/lib/router'
 
 const steps = [
   {
@@ -30,7 +32,8 @@ export function CandidateHome() {
       <StateMessage
         icon={FileSearch}
         title="Todavía no tienes postulaciones"
-        description="Cuando las empresas publiquen vacantes en Worksy, podrás postularte desde aquí y seguir cada proceso."
+        description="Empieza por subir tu CV. Luego podrás postularte a las vacantes publicadas y seguir cada proceso desde aquí."
+        action={<Button onClick={() => navigate('/mi-cv')}>Subir mi CV</Button>}
       />
 
       <section aria-labelledby="como-se-revisa" className="rounded-card bg-azure-100 p-6">

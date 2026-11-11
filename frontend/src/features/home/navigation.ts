@@ -2,6 +2,7 @@ import {
   BriefcaseBusiness,
   Building2,
   FileText,
+  FileUser,
   LayoutGrid,
   MessageSquare,
   ShieldCheck,
@@ -25,6 +26,7 @@ const recruiting: NavItem[] = [
 /** Quien busca empleo: sus postulaciones y su CV. Nunca ve rankings ni datos de otras personas. */
 const candidate: NavItem[] = [
   { id: 'postulaciones', label: 'Mis postulaciones', icon: FileText },
+  { id: 'mi-cv', label: 'Mi CV', icon: FileUser },
   { id: 'vacantes', label: 'Vacantes', icon: BriefcaseBusiness },
   { id: 'entrevistas', label: 'Entrevistas', icon: Video },
   { id: 'mensajes', label: 'Mensajes', icon: MessageSquare },

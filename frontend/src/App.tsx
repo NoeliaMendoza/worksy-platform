@@ -7,6 +7,7 @@ import { ForgotPasswordPage } from '@/features/auth/forgot-password-page'
 import { LoginPage } from '@/features/auth/login-page'
 import { ResetPasswordPage } from '@/features/auth/reset-password-page'
 import { CandidateHome } from '@/features/home/candidate-home'
+import { CvPage } from '@/features/cv/cv-page'
 import { navigationByRole, roleLabel } from '@/features/home/navigation'
 import { PlatformAdminHome } from '@/features/home/platform-admin-home'
 import { ComingSoon } from '@/features/home/coming-soon'
@@ -93,6 +94,7 @@ function pageFor(role: AuthUser['role'], section: string): { current: string; el
   const [first = '', id, sub] = section.split('/')
   if (role === 'CANDIDATE') {
     if (first === '' || first === 'postulaciones') return { current: 'postulaciones', element: <CandidateHome /> }
+    if (first === 'mi-cv') return { current: 'mi-cv', element: <CvPage /> }
     if (first === 'vacantes')
       return { current: 'vacantes', element: id ? <PublicVacancyPage key={id} id={id} signedIn /> : <PublicVacanciesPage /> }
     return null
