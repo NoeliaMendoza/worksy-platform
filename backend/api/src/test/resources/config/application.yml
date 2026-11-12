@@ -1,5 +1,8 @@
 # Configuración solo para pruebas: se suma a la principal. Clave sintética, nunca usar fuera de tests.
 worksy:
+  # Las pruebas sin RabbitMQ no publican el outbox; las que lo levantan lo activan.
+  outbox:
+    enabled: false
   auth:
     jwt-secret: clave-sintetica-solo-para-pruebas-0123456789abcdef
     refresh-cookie-secure: false

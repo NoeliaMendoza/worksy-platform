@@ -141,6 +141,10 @@ services:
       STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
       STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
       STORAGE_BUCKET: ${MINIO_BUCKET_CV:-cv-documents}
+      # Publica el outbox (screening.requested). Si RabbitMQ cae, la API sigue y los eventos esperan.
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8080}:8080"
     depends_on:
@@ -148,6 +152,8 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
 
   screening-worker:
     profiles: ["dev"]

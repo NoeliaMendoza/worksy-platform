@@ -169,6 +169,7 @@ describe('Inicio del candidato', () => {
 describe('Postulaciones recibidas (empresa)', () => {
   it('muestra el correo solo de quien mantiene el permiso', async () => {
     routes({
+      'GET /api/v1/companies/me/vacancies/v-1/screenings': () => json(200, []),
       'GET /api/v1/companies/me/vacancies/v-1/applications': () =>
         json(200, [
           { id: 'a-1', appliedAt: '2026-11-11T10:00:00Z', shared: true, candidateEmail: 'ana@ejemplo.test', cvId: 'cv-1' },
@@ -187,6 +188,7 @@ describe('Postulaciones recibidas (empresa)', () => {
 
   it('abre el CV en otra pestaña con el enlace temporal', async () => {
     routes({
+      'GET /api/v1/companies/me/vacancies/v-1/screenings': () => json(200, []),
       'GET /api/v1/companies/me/vacancies/v-1/applications': () =>
         json(200, [{ id: 'a-1', appliedAt: '2026-11-11T10:00:00Z', shared: true, candidateEmail: 'ana@ejemplo.test', cvId: 'cv-1' }]),
       'GET /api/v1/companies/me/vacancies/v-1/applications/a-1/cv': () =>
@@ -207,6 +209,7 @@ describe('Postulaciones recibidas (empresa)', () => {
 
   it('si el permiso se retiró mientras tanto, cierra la pestaña y lo explica', async () => {
     routes({
+      'GET /api/v1/companies/me/vacancies/v-1/screenings': () => json(200, []),
       'GET /api/v1/companies/me/vacancies/v-1/applications': () =>
         json(200, [{ id: 'a-1', appliedAt: '2026-11-11T10:00:00Z', shared: true, candidateEmail: 'ana@ejemplo.test', cvId: 'cv-1' }]),
       'GET /api/v1/companies/me/vacancies/v-1/applications/a-1/cv': () =>
@@ -225,5 +228,77 @@ describe('Postulaciones recibidas (empresa)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('La persona retiró el permiso de compartir su CV.')
     expect(tab.close).toHaveBeenCalled()
     open.mockRestore()
+  })
+
+  it('pide la preselección con Idempotency-Key y reutiliza la clave al reintentar', async () => {
+    let attempt = 0
+    routes({
+      'GET /api/v1/companies/me/vacancies/v-1/screenings': () => json(200, []),
+      'GET /api/v1/companies/me/vacancies/v-1/applications': () =>
+        json(200, [{ id: 'a-1', appliedAt: '2026-11-11T10:00:00Z', shared: true, candidateEmail: 'ana@ejemplo.test', cvId: 'cv-1' }]),
+      'POST /api/v1/companies/me/vacancies/v-1/screenings': () => {
+        attempt += 1
+        if (attempt === 1) return new Response(null, { status: 503 })
+        return json(202, {
+          requests: [
+            {
+              id: 's-1',
+              applicationId: 'a-1',
+              provider: 'baseline',
+              status: 'PENDING',
+              modelVersion: null,
+              overallScore: null,
+              confidence: null,
+              requestedAt: '2026-11-11T10:01:00Z',
+              updatedAt: '2026-11-11T10:01:00Z',
+            },
+          ],
+          skipped: 1,
+          replayed: false,
+        })
+      },
+    })
+    const user = userEvent.setup()
+    render(as('RECRUITER', <ReceivedApplications token="jwt-sintetico" vacancyId="v-1" />))
+
+    await user.click(await screen.findByRole('button', { name: 'Preseleccionar CV' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('no está disponible')
+    await user.click(screen.getByRole('button', { name: 'Preseleccionar CV' }))
+
+    expect(await screen.findByText(/Se pidió el análisis de 1 CV/)).toHaveTextContent('1 postulación no se incluyó')
+    expect(screen.getByText('En cola de análisis')).toBeInTheDocument()
+    const keys = calls('POST /api/v1/companies/me/vacancies/v-1/screenings').map(
+      ([, init]) => (init.headers as Record<string, string>)['Idempotency-Key'],
+    )
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).toMatch(/^[0-9a-f-]{36}$/)
+    expect(keys[1]).toBe(keys[0])
+  })
+
+  it('muestra el estado del análisis en palabras, sin decidir por la persona', async () => {
+    const s = (applicationId: string, status: string) => ({
+      id: 's-' + applicationId,
+      applicationId,
+      provider: 'baseline',
+      status,
+      modelVersion: null,
+      overallScore: null,
+      confidence: null,
+      requestedAt: '',
+      updatedAt: '',
+    })
+    routes({
+      'GET /api/v1/companies/me/vacancies/v-1/screenings': () => json(200, [s('a-1', 'NEEDS_REVIEW'), s('a-2', 'FAILED')]),
+      'GET /api/v1/companies/me/vacancies/v-1/applications': () =>
+        json(200, [
+          { id: 'a-1', appliedAt: '2026-11-11T10:00:00Z', shared: true, candidateEmail: 'ana@ejemplo.test', cvId: 'cv-1' },
+          { id: 'a-2', appliedAt: '2026-11-11T11:00:00Z', shared: true, candidateEmail: 'luis@ejemplo.test', cvId: 'cv-2' },
+        ]),
+    })
+    render(as('RECRUITER', <ReceivedApplications token="jwt-sintetico" vacancyId="v-1" />))
+
+    expect(await screen.findByText('Análisis con dudas')).toBeInTheDocument()
+    expect(screen.getByText('No se pudo analizar')).toBeInTheDocument()
+    expect(screen.queryByText(/preseleccionad/i)).not.toBeInTheDocument()
   })
 })
