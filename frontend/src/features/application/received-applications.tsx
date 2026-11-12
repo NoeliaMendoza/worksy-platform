@@ -14,12 +14,6 @@ import {
   type ScreeningRequest,
   type ScreeningStatus,
 } from './api'
-import { applicationsApi, type ReceivedApplication } from './api'
-import { EyeOff, Inbox } from 'lucide-react'
-import { StateMessage } from '@/components/state-message'
-import { useResource } from '@/lib/use-resource'
-import { LoadError, LoadingRows } from '@/features/vacancy/resource-states'
-import { applicationsApi } from './api'
 
 const dateTime = new Intl.DateTimeFormat('es', { dateStyle: 'long', timeStyle: 'short' })
 
@@ -90,38 +84,15 @@ export function ReceivedApplications({ token, vacancyId }: { token: string; vaca
           />
         ) : (
           <ol className="divide-y divide-ink-100 rounded-card bg-white shadow-soft">
-              {state.data.applications.map((a, i) => (
-                <ApplicationRow
-                  key={a.id}
-                  token={token}
-                  vacancyId={vacancyId}
-                  application={a}
-                  screening={byApplication.get(a.id)}
-                  position={i + 1}
-                />
-              ))}
-            </ol>
-            {state.data.map((a, i) => (
-              <ApplicationRow key={a.id} token={token} vacancyId={vacancyId} application={a} position={i + 1} />
-
-              <li key={a.id} className="flex items-center gap-4 px-5 py-4 sm:px-6">
-                <span className="w-6 text-right text-sm text-ink-500 tabular-nums">{i + 1}</span>
-                <div className="min-w-0 flex-1">
-                  {a.shared ? (
-                    <p className="truncate text-sm font-semibold text-ink-900">{a.candidateEmail}</p>
-                  ) : (
-                    <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-700">
-                      <EyeOff className="size-4 text-ink-500" aria-hidden="true" />
-                      Datos no compartidos
-                    </p>
-                  )}
-                  <p className="text-sm text-ink-500">
-                    {a.shared
-                      ? `Se postuló el ${dateTime.format(new Date(a.appliedAt))}`
-                      : 'La persona retiró el permiso de compartir su CV.'}
-                  </p>
-                </div>
-              </li>
+            {state.data.applications.map((a, i) => (
+              <ApplicationRow
+                key={a.id}
+                token={token}
+                vacancyId={vacancyId}
+                application={a}
+                screening={byApplication.get(a.id)}
+                position={i + 1}
+              />
             ))}
           </ol>
         ))}
