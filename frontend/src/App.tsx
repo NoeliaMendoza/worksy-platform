@@ -10,6 +10,7 @@ import { CandidateHome } from '@/features/home/candidate-home'
 import { CvPage } from '@/features/cv/cv-page'
 import { navigationByRole, roleLabel } from '@/features/home/navigation'
 import { PlatformAdminHome } from '@/features/home/platform-admin-home'
+import { PlatformUsersPage } from '@/features/admin/users-page'
 import { ComingSoon } from '@/features/home/coming-soon'
 import { RegisterCompanyPage } from '@/features/company/register-company-page'
 import { TeamPage } from '@/features/company/team-page'
@@ -100,6 +101,7 @@ function pageFor(role: AuthUser['role'], section: string): { current: string; el
     return null
   }
   if (role === 'PLATFORM_ADMIN') {
+    if (first === 'usuarios') return { current: 'usuarios', element: <PlatformUsersPage /> }
     return first === '' || first === 'empresas' ? { current: 'empresas', element: <PlatformAdminHome /> } : null
   }
   if (first === 'equipo') return { current: 'equipo', element: <TeamPage /> }
