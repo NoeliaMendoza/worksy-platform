@@ -124,6 +124,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-}  # obligatorio (mínimo 32 caracteres); la API no arranca sin él
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:5173}
+      SCREENING_PROVIDER: ${SCREENING_PROVIDER:-baseline}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
       LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
@@ -192,6 +193,15 @@ services:
     profiles: ["dev"]
     build:
       context: ../inference
+    environment:
+      LAYA_BASE_URL: ${LAYA_BASE_URL:-}
+      LAYA_MODEL: ${LAYA_MODEL:-multilingual}
+      LAYA_MODEL_VERSION: ${LAYA_MODEL_VERSION:-}
+      LAYA_API_KEY: ${LAYA_API_KEY:-}
+      LAYA_TIMEOUT_SECONDS: ${LAYA_TIMEOUT_SECONDS:-4}
+      LAYA_MAX_LEN: ${LAYA_MAX_LEN:-8192}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:${INFERENCE_HOST_PORT:-8000}:8000"
     healthcheck:

@@ -7,7 +7,9 @@ from app.main import create_app
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    monkeypatch.delenv("LAYA_BASE_URL", raising=False)
+    monkeypatch.delenv("LAYA_MODEL_VERSION", raising=False)
     return TestClient(create_app())
 
 
@@ -62,7 +64,7 @@ def test_proveedor_desconocido_devuelve_problem_detail(client):
     assert res.json()["status"] == 400
 
 
-def test_laya_aun_no_disponible(client):
+def test_laya_sin_configuracion_no_disponible(client):
     res = client.post("/v1/decide", json=_request(provider="laya"))
     assert res.status_code == 501
     assert res.json()["title"] == "Proveedor no disponible"
