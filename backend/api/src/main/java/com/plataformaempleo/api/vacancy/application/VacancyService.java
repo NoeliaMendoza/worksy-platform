@@ -4,6 +4,8 @@ import com.plataformaempleo.api.company.domain.model.Company;
 import com.plataformaempleo.api.company.domain.port.out.CompanyRepository;
 import com.plataformaempleo.api.identity.domain.model.Role;
 import com.plataformaempleo.api.shared.application.Actor;
+import com.plataformaempleo.api.shared.application.AuditRecorder;
+import com.plataformaempleo.api.shared.domain.model.AuditAction;
 import com.plataformaempleo.api.vacancy.domain.model.Vacancy;
 import com.plataformaempleo.api.vacancy.domain.port.out.VacancyRepository;
 import com.plataformaempleo.common.domain.DomainException;
@@ -29,11 +31,13 @@ public class VacancyService {
     private final VacancyRepository vacancies;
     private final CompanyRepository companies;
     private final Clock clock;
+    private final AuditRecorder audit;
 
-    public VacancyService(VacancyRepository vacancies, CompanyRepository companies, Clock clock) {
+    public VacancyService(VacancyRepository vacancies, CompanyRepository companies, Clock clock, AuditRecorder audit) {
         this.vacancies = Objects.requireNonNull(vacancies);
         this.companies = Objects.requireNonNull(companies);
         this.clock = Objects.requireNonNull(clock);
+        this.audit = Objects.requireNonNull(audit);
     }
 
     // ---- Empresa ----
@@ -41,22 +45,30 @@ public class VacancyService {
     @Transactional
     public Vacancy create(Actor actor, Vacancy.Content content) {
         UUID companyId = companyOf(actor);
-        return vacancies.save(Vacancy.draft(companyId, actor.userId(), content, clock.instant()));
+        Vacancy saved = vacancies.save(Vacancy.draft(companyId, actor.userId(), content, clock.instant()));
+        audit.record(actor, AuditAction.VACANCY_CREATED, saved.id(), saved.content().title());
+        return saved;
     }
 
     @Transactional
     public Vacancy update(Actor actor, UUID vacancyId, Vacancy.Content content) {
-        return vacancies.save(ownVacancy(actor, vacancyId).edit(content, clock.instant()));
+        Vacancy saved = vacancies.save(ownVacancy(actor, vacancyId).edit(content, clock.instant()));
+        audit.record(actor, AuditAction.VACANCY_UPDATED, saved.id(), saved.content().title());
+        return saved;
     }
 
     @Transactional
     public Vacancy publish(Actor actor, UUID vacancyId) {
-        return vacancies.save(ownVacancy(actor, vacancyId).publish(clock.instant()));
+        Vacancy saved = vacancies.save(ownVacancy(actor, vacancyId).publish(clock.instant()));
+        audit.record(actor, AuditAction.VACANCY_PUBLISHED, saved.id(), saved.content().title());
+        return saved;
     }
 
     @Transactional
     public Vacancy close(Actor actor, UUID vacancyId) {
-        return vacancies.save(ownVacancy(actor, vacancyId).close(clock.instant()));
+        Vacancy saved = vacancies.save(ownVacancy(actor, vacancyId).close(clock.instant()));
+        audit.record(actor, AuditAction.VACANCY_CLOSED, saved.id(), saved.content().title());
+        return saved;
     }
 
     @Transactional(readOnly = true)

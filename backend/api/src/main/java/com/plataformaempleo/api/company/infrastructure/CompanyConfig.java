@@ -8,6 +8,7 @@ import com.plataformaempleo.api.identity.domain.port.out.PasswordHasher;
 import com.plataformaempleo.api.identity.domain.port.out.PasswordResetTokenRepository;
 import com.plataformaempleo.api.identity.domain.port.out.UserRepository;
 import com.plataformaempleo.api.identity.infrastructure.security.AuthProperties;
+import com.plataformaempleo.api.shared.application.AuditRecorder;
 import java.time.Clock;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,8 +21,8 @@ class CompanyConfig {
 
     @Bean
     CompanyRegistrationService companyRegistrationService(CompanyRepository companies, UserRepository users,
-                                                          PasswordHasher hasher, Clock clock) {
-        return new CompanyRegistrationService(companies, users, hasher, clock);
+                                                          PasswordHasher hasher, Clock clock, AuditRecorder audit) {
+        return new CompanyRegistrationService(companies, users, hasher, clock, audit);
     }
 
     /** VALOR SUPUESTO: la invitación vale 72 horas (confirmar con el diseño técnico). */
