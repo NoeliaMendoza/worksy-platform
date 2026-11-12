@@ -177,12 +177,25 @@ describe('Vacante publicada', () => {
     routes({
       'GET /api/v1/companies/me/vacancies/v-1': () => json(200, vacancy({ status: 'PUBLISHED', publishedAt: '2026-11-10T11:00:00Z' })),
       'GET /api/v1/companies/me': () => json(200, { id: 'c-1', name: 'Andina Cargo', createdAt: '' }),
+      'GET /api/v1/companies/me/vacancies/v-1/applications': () => json(200, []),
     })
     render(withRecruiter(<VacancyRankingPage id="v-1" />))
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Desarrollador/a backend Java')
     expect(screen.getByText('Todavía no hay CV para esta vacante')).toBeInTheDocument()
     expect(screen.getByText('Andina Cargo')).toBeInTheDocument()
     expect(screen.queryByText('Valeria Quispe Romero')).not.toBeInTheDocument()
+  })
+
+  it('con postulaciones sin preselección lo dice y lleva a verlas', async () => {
+    routes({
+      'GET /api/v1/companies/me/vacancies/v-1': () => json(200, vacancy({ status: 'PUBLISHED', publishedAt: '2026-11-10T11:00:00Z' })),
+      'GET /api/v1/companies/me': () => json(200, { id: 'c-1', name: 'Andina Cargo', createdAt: '' }),
+      'GET /api/v1/companies/me/vacancies/v-1/applications': () =>
+        json(200, [{ id: 'a-1', appliedAt: '2026-11-11T10:00:00Z', shared: true, candidateEmail: 'ana@ejemplo.test', cvId: 'cv-1' }]),
+    })
+    render(withRecruiter(<VacancyRankingPage id="v-1" />))
+    expect(await screen.findByText('1 postulación espera la preselección')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ver postulaciones' })).toBeInTheDocument()
   })
 })
 

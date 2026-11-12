@@ -4,6 +4,7 @@ import { AppLink } from '@/components/app-link'
 import { Logo } from '@/components/logo'
 import { StateMessage } from '@/components/state-message'
 import { Button } from '@/components/ui/button'
+import { ApplyPanel } from '@/features/application/apply-panel'
 import { navigate } from '@/lib/router'
 import { useResource } from '@/lib/use-resource'
 import { publicVacancies, type PublicVacancySummary } from './api'
@@ -156,16 +157,17 @@ export function PublicVacancyPage({ id, signedIn }: { id: string; signedIn: bool
 
       <CriteriaList criteria={v.criteria} title="Qué se evaluará en tu CV" />
 
-      <p className="flex gap-3 rounded-card bg-azure-100 p-5 text-sm leading-relaxed text-ink-700">
-        <Info className="mt-0.5 size-4 shrink-0 text-navy-700" aria-hidden="true" />
-        {signedIn ? (
-          <span>Pronto podrás postularte desde aquí. Un modelo ordenará los CV y una persona revisará cada uno.</span>
-        ) : (
+      {signedIn ? (
+        <ApplyPanel vacancyId={v.id} companyName={v.companyName} />
+      ) : (
+        <p className="flex gap-3 rounded-card bg-azure-100 p-5 text-sm leading-relaxed text-ink-700">
+          <Info className="mt-0.5 size-4 shrink-0 text-navy-700" aria-hidden="true" />
           <span>
-            Pronto podrás postularte con tu cuenta de Worksy. <AppLink href="/">Inicia sesión</AppLink> para estar listo.
+            <AppLink href="/">Inicia sesión</AppLink> con tu cuenta de Worksy para postularte. Un modelo ordenará los CV
+            y una persona revisará cada uno.
           </span>
-        )}
-      </p>
+        </p>
+      )}
     </div>
   )
 }
