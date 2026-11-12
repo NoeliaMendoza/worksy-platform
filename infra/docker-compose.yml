@@ -167,6 +167,17 @@ services:
       RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
       INFERENCE_URL: http://inference:8000
+      # Misma base que la API (el esquema lo migra la API con Flyway).
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # Lee los PDF con el mismo usuario de servicio limitado al bucket de CV.
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      STORAGE_BUCKET: ${MINIO_BUCKET_CV:-cv-documents}
     ports:
       - "127.0.0.1:${WORKER_HOST_PORT:-8081}:8081"
     depends_on:
@@ -174,6 +185,13 @@ services:
         condition: service_healthy
       inference:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      # La API aplica las migraciones que usa el worker.
+      api:
+        condition: service_started
 
   realtime:
     profiles: ["dev"]

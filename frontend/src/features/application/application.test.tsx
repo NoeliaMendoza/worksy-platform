@@ -254,7 +254,8 @@ describe('Postulaciones recibidas (empresa)', () => {
             },
           ],
           skipped: 1,
-          replayed: false,
+          // La petición original pudo completarse aunque se perdiera su respuesta.
+          replayed: true,
         })
       },
     })

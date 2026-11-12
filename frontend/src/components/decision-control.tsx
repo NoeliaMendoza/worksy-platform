@@ -15,13 +15,14 @@ type DecisionControlProps = {
   onChange: (next: Decision | null) => void
   candidateName: string
   className?: string
+  disabled?: boolean
 }
 
 /**
  * Decisión humana sobre un CV. Siempre visible: el modelo ordena, la persona decide.
  * Botones conmutables (aria-pressed) con texto e icono.
  */
-export function DecisionControl({ value, onChange, candidateName, className }: DecisionControlProps) {
+export function DecisionControl({ value, onChange, candidateName, className, disabled }: DecisionControlProps) {
   return (
     <div role="group" aria-label={`Decisión sobre ${candidateName}`} className={cn('flex flex-wrap gap-1 sm:gap-1.5', className)}>
       {options.map(({ value: option, Icon, active }) => {
@@ -30,6 +31,7 @@ export function DecisionControl({ value, onChange, candidateName, className }: D
           <button
             key={option}
             type="button"
+            disabled={disabled}
             aria-pressed={pressed}
             onClick={() => onChange(pressed ? null : option)}
             className={cn(

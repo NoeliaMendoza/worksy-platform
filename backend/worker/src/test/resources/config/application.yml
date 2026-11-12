@@ -1,0 +1,7 @@
+# Solo para pruebas: el esquema se crea con las MISMAS migraciones de la API (fuente única de verdad).
+spring:
+  flyway:
+    enabled: true
+    locations: filesystem:../api/src/main/resources/db/migration
+worksy:
+  retry-backoff: 20ms

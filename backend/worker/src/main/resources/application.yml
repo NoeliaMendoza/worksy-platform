@@ -4,15 +4,49 @@ spring:
   threads:
     virtual:
       enabled: true
+  # Misma PostgreSQL que la API. El esquema lo gestiona Flyway desde la API: aquí no se migra nada.
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/empleo}
+    username: ${DB_USER:empleo}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:5}
+  flyway:
+    enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:empleo}
     password: ${RABBITMQ_PASSWORD:}
+    listener:
+      simple:
+        # Confirmación automática al terminar sin error; un rechazo NO reencola (va a la cola de fallidos).
+        acknowledge-mode: auto
+        default-requeue-rejected: false
+        # VALOR SUPUESTO: pocos mensajes en vuelo por réplica, porque cada uno llama a un modelo costoso.
+        prefetch: 2
+        concurrency: 1
+        max-concurrency: 4
 
-# URL del servicio de inferencia. En F4 apuntará a Nginx para aplicar balanceo y canario.
-inference:
-  base-url: ${INFERENCE_URL:http://localhost:8000}
+worksy:
+  # VALOR SUPUESTO: bajo esta confianza la preselección queda "con dudas" (NEEDS_REVIEW).
+  review-threshold: 0.6
+  # En F4 apuntará a Nginx para aplicar balanceo y canario (sección 2 del diseño).
+  inference-url: ${INFERENCE_URL:http://localhost:8000}
+  inference-timeout: 5s
+  retry-backoff: 500ms
+  storage:
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    region: ${STORAGE_REGION:us-east-1}
+    access-key: ${STORAGE_ACCESS_KEY:}
+    secret-key: ${STORAGE_SECRET_KEY:}
+    bucket: ${STORAGE_BUCKET:cv-documents}
 
 server:
   port: 8081

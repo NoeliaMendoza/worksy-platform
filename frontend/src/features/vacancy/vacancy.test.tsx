@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -175,6 +175,7 @@ describe('Vacante publicada', () => {
 
   it('el ranking de una vacante real muestra el estado vacío honesto', async () => {
     routes({
+      'GET /api/v1/companies/me/vacancies/v-1/ranking': () => json(200, { candidates: [], received: 0, pending: 0, failed: 0, notRequested: 0 }),
       'GET /api/v1/companies/me/vacancies/v-1': () => json(200, vacancy({ status: 'PUBLISHED', publishedAt: '2026-11-10T11:00:00Z' })),
       'GET /api/v1/companies/me': () => json(200, { id: 'c-1', name: 'Andina Cargo', createdAt: '' }),
       'GET /api/v1/companies/me/vacancies/v-1/applications': () => json(200, []),
@@ -188,6 +189,7 @@ describe('Vacante publicada', () => {
 
   it('con postulaciones sin preselección lo dice y lleva a verlas', async () => {
     routes({
+      'GET /api/v1/companies/me/vacancies/v-1/ranking': () => json(200, { candidates: [], received: 1, pending: 0, failed: 0, notRequested: 1 }),
       'GET /api/v1/companies/me/vacancies/v-1': () => json(200, vacancy({ status: 'PUBLISHED', publishedAt: '2026-11-10T11:00:00Z' })),
       'GET /api/v1/companies/me': () => json(200, { id: 'c-1', name: 'Andina Cargo', createdAt: '' }),
       'GET /api/v1/companies/me/vacancies/v-1/applications': () =>
@@ -196,6 +198,86 @@ describe('Vacante publicada', () => {
     render(withRecruiter(<VacancyRankingPage id="v-1" />))
     expect(await screen.findByText('1 postulación espera la preselección')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ver postulaciones' })).toBeInTheDocument()
+  })
+})
+
+describe('Ranking conectado', () => {
+  const candidate = {
+    applicationId: 'a-1', email: 'ana@ejemplo.test', fullName: null, headline: null, location: null,
+    appliedAt: '2026-11-11T10:00:00Z', status: 'NEEDS_REVIEW', modelVersion: 'baseline-bow-1',
+    overallScore: 0.75, confidence: 0.55,
+    answers: [{ criterionId: 'q1', answer: 'Sí', score: 1, probability: 0.55 }], decision: null,
+  }
+
+  function rankingRoutes(saveFails = false) {
+    let decision: string | null = null
+    routes({
+      'GET /api/v1/companies/me/vacancies/v-1': () => json(200, vacancy({ status: 'PUBLISHED' })),
+      'GET /api/v1/companies/me': () => json(200, { name: 'Andina Cargo' }),
+      'GET /api/v1/companies/me/vacancies/v-1/ranking': () =>
+        json(200, { candidates: [{ ...candidate, decision }], received: 1, pending: 0, failed: 0, notRequested: 0 }),
+      'PUT /api/v1/companies/me/vacancies/v-1/ranking/a-1/decision': (init) => {
+        if (saveFails) return json(503, { detail: 'No se pudo guardar la decisión.' })
+        decision = JSON.parse(init?.body as string).decision
+        return new Response(null, { status: 204 })
+      },
+    })
+  }
+
+  it('actualiza al terminar el análisis y deja de consultar cuando no hay pendientes', async () => {
+    let requests = 0
+    routes({
+      'GET /api/v1/companies/me/vacancies/v-1': () => json(200, vacancy({ status: 'PUBLISHED' })),
+      'GET /api/v1/companies/me': () => json(200, { name: 'Andina Cargo' }),
+      'GET /api/v1/companies/me/vacancies/v-1/ranking': () => {
+        requests++
+        return json(200, { candidates: requests > 1 ? [candidate] : [], received: 1,
+          pending: requests > 1 ? 0 : 1, failed: 0, notRequested: 0 })
+      },
+    })
+    vi.useFakeTimers()
+    try {
+      await act(async () => { render(withRecruiter(<VacancyRankingPage id="v-1" />)) })
+      expect(screen.getByText('Analizando los CV')).toBeInTheDocument()
+      await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
+      expect(screen.getByRole('heading', { name: candidate.email })).toBeInTheDocument()
+      expect(requests).toBe(2)
+      await act(async () => { await vi.advanceTimersByTimeAsync(15000) })
+      expect(requests).toBe(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('muestra respuestas reales y conserva la decisión al volver a entrar', async () => {
+    rankingRoutes()
+    const user = userEvent.setup()
+    const page = render(withRecruiter(<VacancyRankingPage id="v-1" />))
+    expect(await screen.findByRole('heading', { name: candidate.email })).toBeInTheDocument()
+    expect(screen.getByRole('meter', { name: `Compatibilidad de ${candidate.email}` })).toHaveAttribute('aria-valuenow', '75')
+    expect(screen.getByText('Análisis con dudas: revisa el CV')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ver evidencia' }))
+    expect(screen.getByText(/El análisis no incluye una cita del PDF/)).toBeInTheDocument()
+    expect(screen.queryByText('El CV no menciona este criterio.')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Preseleccionar' }))
+    expect(await screen.findByText('Decisión guardada.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Preseleccionar' })).toHaveAttribute('aria-pressed', 'true')
+    page.unmount()
+    render(withRecruiter(<VacancyRankingPage id="v-1" />))
+    expect(await screen.findByRole('button', { name: 'Preseleccionar' })).toHaveAttribute('aria-pressed', 'true')
+    await user.click(screen.getByRole('button', { name: 'Preseleccionar' }))
+    await screen.findByText('Decisión guardada.')
+    expect(screen.getByRole('button', { name: 'Preseleccionar' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('si falla el guardado no cambia la decisión ni anuncia éxito', async () => {
+    rankingRoutes(true)
+    const user = userEvent.setup()
+    render(withRecruiter(<VacancyRankingPage id="v-1" />))
+    await user.click(await screen.findByRole('button', { name: 'Descartar' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('El servicio no está disponible ahora.')
+    expect(screen.getByRole('button', { name: 'Descartar' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByText('Decisión guardada.')).not.toBeInTheDocument()
   })
 })
 

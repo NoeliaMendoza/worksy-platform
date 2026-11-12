@@ -19,6 +19,8 @@ export interface CriterionAnswer {
   outcome: CriterionOutcome
   /** Fragmento del CV que respalda la respuesta. Vacío si no hay evidencia. */
   evidence: string
+  /** El proveedor devolvió una respuesta, pero no una cita del PDF. */
+  evidenceUnavailable?: boolean
 }
 
 export interface Criterion {

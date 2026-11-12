@@ -14,7 +14,8 @@ import type { RankingState } from './use-vacancy-ranking'
 type RankingViewProps = {
   state: RankingState
   onRetry: () => void
-  onDecide: (candidateId: string, decision: Decision | null) => void
+  onDecide: (candidateId: string, decision: Decision | null) => void | Promise<void>
+  decisionsDisabled?: boolean
   /** Estado vacío propio (p. ej., hay postulaciones pero aún no hay preselección). */
   empty?: EmptyState
 }
@@ -30,12 +31,16 @@ function matches(c: RankedCandidate, f: DecisionFilter) {
 }
 
 /** Pantalla de referencia: ranking de CV de una vacante con decisión humana. */
-export function RankingView({ state, onRetry, onDecide, empty }: RankingViewProps) {
+export function RankingView({ state, onRetry, onDecide, empty, decisionsDisabled }: RankingViewProps) {
   const [announcement, setAnnouncement] = useState('')
 
-  function handleDecide(c: RankedCandidate, d: Decision | null) {
-    onDecide(c.id, d)
-    setAnnouncement(`${c.fullName}: ${d ? decisionState[d].toLowerCase() : 'sin revisar'}.`)
+  async function handleDecide(c: RankedCandidate, d: Decision | null) {
+    try {
+      await onDecide(c.id, d)
+      setAnnouncement(`${c.fullName}: ${d ? decisionState[d].toLowerCase() : 'sin revisar'}.`)
+    } catch {
+      // La pantalla que guarda la decisión presenta el error y conserva la decisión anterior.
+    }
   }
 
   return (
@@ -67,7 +72,7 @@ export function RankingView({ state, onRetry, onDecide, empty }: RankingViewProp
       )}
 
       {state.status === 'ready' && (
-        <Ready vacancy={state.data.vacancy} candidates={state.data.candidates} onDecide={handleDecide} empty={empty} />
+        <Ready vacancy={state.data.vacancy} candidates={state.data.candidates} onDecide={(c, d) => void handleDecide(c, d)} empty={empty} decisionsDisabled={decisionsDisabled} />
       )}
     </div>
   )
@@ -215,11 +220,13 @@ function Ready({
   candidates,
   onDecide,
   empty,
+  decisionsDisabled,
 }: {
   vacancy: Vacancy
   candidates: RankedCandidate[]
   onDecide: (c: RankedCandidate, d: Decision | null) => void
   empty?: EmptyState
+  decisionsDisabled?: boolean
 }) {
   const [filter, setFilter] = useState<DecisionFilter>('todos')
   const sorted = useMemo(() => [...candidates].sort((a, b) => a.rank - b.rank), [candidates])
@@ -275,6 +282,7 @@ function Ready({
                   {visible.map((c) => (
                     <li key={c.id}>
                       <CandidateRow
+                        decisionsDisabled={decisionsDisabled}
                         candidate={c}
                         criteria={vacancy.criteria}
                         onDecide={(_, d) => onDecide(c, d)}
