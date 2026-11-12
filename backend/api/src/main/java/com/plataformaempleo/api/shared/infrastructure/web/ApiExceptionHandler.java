@@ -71,7 +71,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * auth.* → 401; access.* → 403; *.not-found → 404; *.taken y *.duplicate → 409;
+     * auth.* → 401; access.* → 403; *.not-found → 404; *.taken, *.duplicate y *.in-use → 409;
      * *.too-large → 413; storage.* → 503; resto de reglas de negocio → 400.
      */
     static HttpStatus statusFor(String code) {
@@ -90,7 +90,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         if (code.endsWith(".not-found")) {
             return HttpStatus.NOT_FOUND;
         }
-        if (code.endsWith(".taken") || code.endsWith(".duplicate")) {
+        if (code.endsWith(".taken") || code.endsWith(".duplicate") || code.endsWith(".in-use")) {
             return HttpStatus.CONFLICT;
         }
         if (code.endsWith(".too-large")) {

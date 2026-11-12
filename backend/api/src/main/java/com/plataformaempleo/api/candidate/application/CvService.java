@@ -4,6 +4,7 @@ import com.plataformaempleo.api.candidate.domain.model.CvDocument;
 import com.plataformaempleo.api.candidate.domain.model.PdfFile;
 import com.plataformaempleo.api.candidate.domain.port.out.CvDocumentRepository;
 import com.plataformaempleo.api.candidate.domain.port.out.CvStorage;
+import com.plataformaempleo.api.candidate.domain.port.out.CvUsage;
 import com.plataformaempleo.api.identity.domain.model.Role;
 import com.plataformaempleo.api.shared.application.Actor;
 import com.plataformaempleo.common.domain.DomainException;
@@ -32,11 +33,13 @@ public class CvService {
 
     private final CvDocumentRepository documents;
     private final CvStorage storage;
+    private final CvUsage usage;
     private final Clock clock;
 
-    public CvService(CvDocumentRepository documents, CvStorage storage, Clock clock) {
+    public CvService(CvDocumentRepository documents, CvStorage storage, CvUsage usage, Clock clock) {
         this.documents = Objects.requireNonNull(documents);
         this.storage = Objects.requireNonNull(storage);
+        this.usage = Objects.requireNonNull(usage);
         this.clock = Objects.requireNonNull(clock);
     }
 
@@ -71,6 +74,10 @@ public class CvService {
         CvDocument document = documents.findById(cvId)
                 .filter(d -> d.belongsTo(candidateId))
                 .orElseThrow(() -> new DomainException("cv.not-found", "El CV no existe"));
+        // Se comprueba ANTES de tocar el almacenamiento: si no, el archivo se borraría y el registro no.
+        if (usage.isInUse(document.id())) {
+            throw new DomainException("cv.in-use", "Este CV está en una postulación. Retírala antes de eliminarlo");
+        }
         storage.delete(document.storageKey());
         documents.delete(document.id());
     }

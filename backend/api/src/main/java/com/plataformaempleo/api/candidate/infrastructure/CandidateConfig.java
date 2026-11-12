@@ -5,6 +5,7 @@ import com.plataformaempleo.api.candidate.application.CvService;
 import com.plataformaempleo.api.candidate.domain.port.out.CandidateProfileRepository;
 import com.plataformaempleo.api.candidate.domain.port.out.CvDocumentRepository;
 import com.plataformaempleo.api.candidate.domain.port.out.CvStorage;
+import com.plataformaempleo.api.candidate.domain.port.out.CvUsage;
 import java.time.Clock;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,8 +15,8 @@ import org.springframework.context.annotation.Configuration;
 class CandidateConfig {
 
     @Bean
-    CvService cvService(CvDocumentRepository documents, CvStorage storage, Clock clock) {
-        return new CvService(documents, storage, clock);
+    CvService cvService(CvDocumentRepository documents, CvStorage storage, CvUsage usage, Clock clock) {
+        return new CvService(documents, storage, usage, clock);
     }
 
     @Bean
