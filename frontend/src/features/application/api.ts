@@ -29,4 +29,10 @@ export const applicationsApi = {
     apiRequest<void>(`/candidates/me/applications/${id}`, { method: 'DELETE', token }),
   forVacancy: (token: string, vacancyId: string) =>
     apiRequest<ReceivedApplication[]>(`/companies/me/vacancies/${vacancyId}/applications`, { token }),
+  /** Enlace temporal (5 minutos) al PDF. Solo si la persona mantiene el permiso de compartirlo. */
+  cvLink: (token: string, vacancyId: string, applicationId: string) =>
+    apiRequest<{ url: string; expiresAt: string }>(
+      `/companies/me/vacancies/${vacancyId}/applications/${applicationId}/cv`,
+      { token },
+    ),
 }

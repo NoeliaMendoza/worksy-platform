@@ -16,6 +16,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 /**
  * Cliente S3. No contacta con el almacenamiento al arrancar: el bucket lo crea la
@@ -43,9 +44,26 @@ class StorageConfig {
         return builder.build();
     }
 
+    /**
+     * Firma enlaces temporales con la dirección pública: la firma incluye el host, así que debe ser
+     * la misma con la que el navegador llegará al almacenamiento. Firmar no contacta con el servicio.
+     */
+    @Bean(destroyMethod = "close")
+    S3Presigner s3Presigner(StorageProperties props) {
+        var builder = S3Presigner.builder()
+                .region(Region.of(props.region()))
+                .credentialsProvider(credentials(props))
+                .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build());
+        String publicEndpoint = StringUtils.hasText(props.publicEndpoint()) ? props.publicEndpoint() : props.endpoint();
+        if (StringUtils.hasText(publicEndpoint)) {
+            builder.endpointOverride(URI.create(publicEndpoint));
+        }
+        return builder.build();
+    }
+
     @Bean
-    CvStorage cvStorage(S3Client s3, StorageProperties props) {
-        return new S3CvStorage(s3, props.bucket());
+    CvStorage cvStorage(S3Client s3, S3Presigner presigner, StorageProperties props) {
+        return new S3CvStorage(s3, presigner, props.bucket());
     }
 
     /**

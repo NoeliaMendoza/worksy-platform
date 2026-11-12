@@ -181,5 +181,49 @@ describe('Postulaciones recibidas (empresa)', () => {
     expect(screen.getByText('ana@ejemplo.test')).toBeInTheDocument()
     expect(screen.getByText('Datos no compartidos')).toBeInTheDocument()
     expect(screen.getByText('La persona retiró el permiso de compartir su CV.')).toBeInTheDocument()
+    // Solo quien comparte su CV tiene el botón para verlo.
+    expect(screen.getAllByRole('button', { name: /^Ver el CV de/ })).toHaveLength(1)
+  })
+
+  it('abre el CV en otra pestaña con el enlace temporal', async () => {
+    routes({
+      'GET /api/v1/companies/me/vacancies/v-1/applications': () =>
+        json(200, [{ id: 'a-1', appliedAt: '2026-11-11T10:00:00Z', shared: true, candidateEmail: 'ana@ejemplo.test', cvId: 'cv-1' }]),
+      'GET /api/v1/companies/me/vacancies/v-1/applications/a-1/cv': () =>
+        json(200, { url: 'http://almacenamiento.test/cv/x.pdf?firma=1', expiresAt: '2026-11-11T10:05:00Z' }),
+    })
+    const tab = { opener: {}, location: { href: '' }, close: vi.fn() }
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    const user = userEvent.setup()
+    render(as('RECRUITER', <ReceivedApplications token="jwt-sintetico" vacancyId="v-1" />))
+
+    await user.click(await screen.findByRole('button', { name: /^Ver el CV de ana@ejemplo.test/ }))
+
+    expect(open).toHaveBeenCalledWith('', '_blank')
+    await waitFor(() => expect(tab.location.href).toBe('http://almacenamiento.test/cv/x.pdf?firma=1'))
+    expect(tab.opener).toBeNull()
+    open.mockRestore()
+  })
+
+  it('si el permiso se retiró mientras tanto, cierra la pestaña y lo explica', async () => {
+    routes({
+      'GET /api/v1/companies/me/vacancies/v-1/applications': () =>
+        json(200, [{ id: 'a-1', appliedAt: '2026-11-11T10:00:00Z', shared: true, candidateEmail: 'ana@ejemplo.test', cvId: 'cv-1' }]),
+      'GET /api/v1/companies/me/vacancies/v-1/applications/a-1/cv': () =>
+        new Response(JSON.stringify({ status: 403, code: 'access.cv-not-shared', detail: 'La persona retiró el permiso de compartir su CV' }), {
+          status: 403,
+          headers: { 'Content-Type': 'application/problem+json' },
+        }),
+    })
+    const tab = { opener: {}, location: { href: '' }, close: vi.fn() }
+    const open = vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    const user = userEvent.setup()
+    render(as('RECRUITER', <ReceivedApplications token="jwt-sintetico" vacancyId="v-1" />))
+
+    await user.click(await screen.findByRole('button', { name: /^Ver el CV de/ }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('La persona retiró el permiso de compartir su CV.')
+    expect(tab.close).toHaveBeenCalled()
+    open.mockRestore()
   })
 })

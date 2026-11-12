@@ -163,6 +163,11 @@ class CvServiceTest {
             }
             objects.remove(key);
         }
+
+        @Override
+        public java.net.URI temporaryReadUrl(String key, java.time.Duration validity) {
+            return java.net.URI.create("http://almacenamiento.test/" + key);
+        }
     }
 
     private static final class InMemoryDocuments implements CvDocumentRepository {

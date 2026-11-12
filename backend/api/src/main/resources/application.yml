@@ -67,6 +67,8 @@ worksy:
   # Almacenamiento de CV compatible con S3 (MinIO). Usuario de servicio limitado al bucket, no el administrador.
   storage:
     endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    # Dirección con la que el navegador abre los enlaces temporales de CV. Vacía = la misma que endpoint.
+    public-endpoint: ${STORAGE_PUBLIC_ENDPOINT:}
     region: ${STORAGE_REGION:us-east-1}
     access-key: ${STORAGE_ACCESS_KEY:}
     secret-key: ${STORAGE_SECRET_KEY:}

@@ -2,11 +2,15 @@ package com.plataformaempleo.api.candidate.infrastructure.storage;
 
 import com.plataformaempleo.api.candidate.domain.port.out.CvStorage;
 import com.plataformaempleo.common.domain.DomainException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 /** Adaptador del puerto {@link CvStorage} sobre la API de S3 (MinIO u otro compatible). */
 class S3CvStorage implements CvStorage {
@@ -14,10 +18,12 @@ class S3CvStorage implements CvStorage {
     private static final Logger log = LoggerFactory.getLogger(S3CvStorage.class);
 
     private final S3Client s3;
+    private final S3Presigner presigner;
     private final String bucket;
 
-    S3CvStorage(S3Client s3, String bucket) {
+    S3CvStorage(S3Client s3, S3Presigner presigner, String bucket) {
         this.s3 = s3;
+        this.presigner = presigner;
         this.bucket = bucket;
     }
 
@@ -38,6 +44,25 @@ class S3CvStorage implements CvStorage {
             s3.deleteObject(b -> b.bucket(bucket).key(key));
         } catch (SdkException e) {
             throw unavailable("borrar", key, e);
+        }
+    }
+
+    @Override
+    public URI temporaryReadUrl(String key, Duration validity) {
+        try {
+            var signed = presigner.presignGetObject(p -> p
+                    .signatureDuration(validity)
+                    .getObjectRequest(g -> g.bucket(bucket).key(key)
+                            // Se abre en el visor del navegador y con un nombre neutro, sin datos de la persona.
+                            .responseContentType("application/pdf")
+                            .responseContentDisposition("inline; filename=\"cv.pdf\"")
+                            // Que el navegador no guarde copias de un documento con datos personales.
+                            .responseCacheControl("private, no-store")));
+            return signed.url().toURI();
+        } catch (SdkException | URISyntaxException e) {
+            log.error("No se pudo firmar el enlace del objeto {}", key, e);
+            throw new DomainException("storage.unavailable",
+                    "No pudimos preparar el CV en este momento. Intenta de nuevo en unos minutos");
         }
     }
 
