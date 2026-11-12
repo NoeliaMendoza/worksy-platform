@@ -20,6 +20,15 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  # RabbitMQ: solo para publicar el outbox. Confirmaciones "simple": el evento se marca como publicado
+  # únicamente cuando el broker confirma que lo recibió.
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:empleo}
+    password: ${RABBITMQ_PASSWORD:}
+    publisher-confirm-type: simple
+    connection-timeout: 5s
   # CV en PDF: máximo 5 MB (sección 5 del diseño). La petición admite un poco más por las cabeceras del multipart.
   servlet:
     multipart:
@@ -64,6 +73,15 @@ worksy:
         client-secret: ${GITHUB_CLIENT_SECRET:}
   mail:
     from: ${MAIL_FROM:}
+  # Publicador del outbox: cada segundo envía hasta 100 eventos pendientes (VALORES SUPUESTOS).
+  outbox:
+    enabled: ${OUTBOX_ENABLED:true}
+    poll-interval-ms: 1000
+    batch-size: 100
+    confirm-timeout-ms: 5000
+  # Proveedor de decisión para las nuevas preselecciones: baseline hasta verificar la API de Laya.
+  screening:
+    provider: ${SCREENING_PROVIDER:baseline}
   # Almacenamiento de CV compatible con S3 (MinIO). Usuario de servicio limitado al bucket, no el administrador.
   storage:
     endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
@@ -103,6 +121,10 @@ management:
   health:
     # Un fallo del SMTP no debe marcar la API como caída: el correo es secundario.
     mail:
+      enabled: false
+    # Tampoco RabbitMQ: gracias al outbox, la API sigue aceptando peticiones aunque el broker
+    # no responda; los eventos esperan en la base de datos y se envían al volver.
+    rabbit:
       enabled: false
 
 springdoc:

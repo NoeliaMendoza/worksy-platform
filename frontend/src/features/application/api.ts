@@ -21,6 +21,42 @@ export interface ReceivedApplication {
   cvId: string | null
 }
 
+export type ScreeningStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'NEEDS_REVIEW' | 'FAILED'
+
+export interface ScreeningRequest {
+  id: string
+  applicationId: string
+  provider: string
+  status: ScreeningStatus
+  modelVersion: string | null
+  overallScore: number | null
+  confidence: number | null
+  requestedAt: string
+  updatedAt: string
+}
+
+export interface ScreeningBatch {
+  requests: ScreeningRequest[]
+  skipped: number
+  replayed: boolean
+}
+
+export const screeningApi = {
+  /**
+   * Pide la preselección de todas las postulaciones de la vacante. `idempotencyKey` identifica la
+   * intención: reintentar con la misma clave no duplica el trabajo.
+   */
+  request: (token: string, vacancyId: string, idempotencyKey: string) =>
+    apiRequest<ScreeningBatch>(`/companies/me/vacancies/${vacancyId}/screenings`, {
+      method: 'POST',
+      body: {},
+      token,
+      headers: { 'Idempotency-Key': idempotencyKey },
+    }),
+  list: (token: string, vacancyId: string) =>
+    apiRequest<ScreeningRequest[]>(`/companies/me/vacancies/${vacancyId}/screenings`, { token }),
+}
+
 export const applicationsApi = {
   apply: (token: string, vacancyId: string, cvId: string) =>
     apiRequest<{ id: string }>(`/vacancies/${vacancyId}/applications`, { method: 'POST', body: { cvId }, token }),

@@ -6,15 +6,17 @@ type Options = {
   body?: unknown
   /** Token de acceso; se envía como Authorization: Bearer. */
   token?: string
+  /** Cabeceras adicionales (p. ej., Idempotency-Key). */
+  headers?: Record<string, string>
 }
 
 /**
  * Cliente JSON para /api/v1. Convierte los ProblemDetail en ApiError con su código estable,
  * y los fallos de red en ApiError(0, 'network').
  */
-export async function apiRequest<T>(path: string, { method = 'GET', body, token }: Options = {}): Promise<T> {
+export async function apiRequest<T>(path: string, { method = 'GET', body, token, headers: extra }: Options = {}): Promise<T> {
   const isForm = body instanceof FormData
-  const headers: Record<string, string> = { Accept: 'application/json, application/problem+json' }
+  const headers: Record<string, string> = { Accept: 'application/json, application/problem+json', ...extra }
   if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
 
