@@ -12,6 +12,8 @@ import com.plataformaempleo.api.identity.domain.port.out.PasswordHasher;
 import com.plataformaempleo.api.identity.domain.port.out.PasswordResetTokenRepository;
 import com.plataformaempleo.api.identity.domain.port.out.UserRepository;
 import com.plataformaempleo.api.shared.application.Actor;
+import com.plataformaempleo.api.shared.application.AuditRecorder;
+import com.plataformaempleo.api.shared.domain.port.out.AuditTrail;
 import com.plataformaempleo.common.domain.DomainException;
 import java.time.Clock;
 import java.time.Duration;
@@ -63,7 +65,8 @@ class TeamServiceTest {
             @Override public String hash(String raw) { return "hash:" + raw; }
             @Override public boolean matches(String raw, String hash) { return hash.equals("hash:" + raw); }
         };
-        registration = new CompanyRegistrationService(companies, users, hasher, clock);
+        registration = new CompanyRegistrationService(companies, users, hasher, clock,
+                new AuditRecorder(org.mockito.Mockito.mock(AuditTrail.class), clock));
         team = new TeamService(companies, users, resetTokens, hasher,
                 (email, company, link, hours) -> invitations.add(new String[] {email, company, link, String.valueOf(hours)}),
                 clock, Duration.ofHours(72), "http://localhost:5173/restablecer");

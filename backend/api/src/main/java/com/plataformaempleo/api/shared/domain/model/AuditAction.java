@@ -1,0 +1,14 @@
+package com.plataformaempleo.api.shared.domain.model;
+
+public enum AuditAction {
+    COMPANY_REGISTERED,
+    VACANCY_CREATED,
+    VACANCY_UPDATED,
+    VACANCY_PUBLISHED,
+    VACANCY_CLOSED,
+    SCREENING_REQUESTED,
+    REVIEW_PRESELECTED,
+    REVIEW_WAITLISTED,
+    REVIEW_REJECTED,
+    REVIEW_CLEARED
+}

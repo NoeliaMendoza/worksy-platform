@@ -5,6 +5,9 @@ import com.plataformaempleo.api.screening.domain.model.RankingResult;
 import com.plataformaempleo.api.screening.domain.model.ScreeningRequest;
 import com.plataformaempleo.api.screening.domain.port.out.RankingRepository;
 import com.plataformaempleo.api.shared.application.Actor;
+import com.plataformaempleo.api.shared.application.AuditRecorder;
+import com.plataformaempleo.api.shared.domain.model.AuditAction;
+import com.plataformaempleo.api.vacancy.domain.model.Vacancy;
 import com.plataformaempleo.api.vacancy.domain.port.out.VacancyRepository;
 import com.plataformaempleo.common.domain.DomainException;
 import java.time.Clock;
@@ -18,12 +21,14 @@ public class RankingService {
     private final VacancyRepository vacancies;
     private final String provider;
     private final Clock clock;
+    private final AuditRecorder audit;
 
-    public RankingService(RankingRepository results, VacancyRepository vacancies, String provider, Clock clock) {
+    public RankingService(RankingRepository results, VacancyRepository vacancies, String provider, Clock clock, AuditRecorder audit) {
         this.results = results;
         this.vacancies = vacancies;
         this.provider = provider;
         this.clock = clock;
+        this.audit = audit;
     }
 
     public record Ranking(List<RankingResult> candidates, long received, long pending, long failed, long notRequested) { }
@@ -45,16 +50,22 @@ public class RankingService {
 
     @Transactional
     public void decide(Actor actor, UUID vacancyId, UUID applicationId, RankingResult.Decision decision) {
-        requireOwnVacancy(actor, vacancyId);
+        Vacancy vacancy = requireOwnVacancy(actor, vacancyId);
         results.findSharedByVacancy(vacancyId, provider).stream()
                 .filter(r -> r.applicationId().equals(applicationId) && r.analyzed()).findFirst()
                 .orElseThrow(() -> new DomainException("ranking.result.not-found", "El resultado no está disponible"));
         results.saveDecision(applicationId, decision, actor.userId(), clock.instant());
+        AuditAction action = decision == null ? AuditAction.REVIEW_CLEARED : switch (decision) {
+            case preseleccionado -> AuditAction.REVIEW_PRESELECTED;
+            case en_espera -> AuditAction.REVIEW_WAITLISTED;
+            case descartado -> AuditAction.REVIEW_REJECTED;
+        };
+        audit.record(actor, action, applicationId, vacancy.content().title());
     }
 
-    private void requireOwnVacancy(Actor actor, UUID vacancyId) {
+    private Vacancy requireOwnVacancy(Actor actor, UUID vacancyId) {
         UUID companyId = actor.requireCompany(Role.COMPANY_ADMIN, Role.RECRUITER);
-        vacancies.findById(vacancyId).filter(v -> v.companyId().equals(companyId))
+        return vacancies.findById(vacancyId).filter(v -> v.companyId().equals(companyId))
                 .orElseThrow(() -> new DomainException("vacancy.not-found", "La vacante no existe"));
     }
 }
