@@ -35,9 +35,14 @@ export function useResource<T>(load: () => Promise<T>, key: string, fallbackErro
   /** Sustituye los datos ya cargados (p. ej., tras guardar) sin volver a pedirlos. */
   const replace = useCallback((data: T) => setState((s) => ({ ...s, value: { status: 'ready', data } })), [])
 
+  /** Aplica una respuesta sobre los datos actuales, aunque haya terminado otra petición mientras tanto. */
+  const update = useCallback((change: (current: T) => T) => setState((s) =>
+    s.value.status === 'ready' ? { ...s, value: { status: 'ready', data: change(s.value.data) } } : s,
+  ), [])
+
   const refresh = useCallback(() => setAttempt((n) => n + 1), [])
 
   // Mientras llega la respuesta de una clave nueva, se muestra "cargando" en vez de datos viejos.
   const value: Resource<T> = state.key === key ? state.value : { status: 'loading' }
-  return { state: value, retry, refresh, replace }
+  return { state: value, retry, refresh, replace, update }
 }
