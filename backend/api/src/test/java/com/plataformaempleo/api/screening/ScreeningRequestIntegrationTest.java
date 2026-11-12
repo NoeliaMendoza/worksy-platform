@@ -1,6 +1,7 @@
 package com.plataformaempleo.api.screening;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,6 +10,7 @@ import com.plataformaempleo.common.events.EventTypes;
 import com.plataformaempleo.common.events.Messaging;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.List;
@@ -99,8 +101,10 @@ class ScreeningRequestIntegrationTest {
         assertThat(payload.get("screeningRequestId").asText()).isEqualTo(requestId);
         assertThat(payload.get("provider").asText()).isEqualTo("baseline");
         assertThat(payload.has("cvText")).isFalse();
-        assertThat(jdbc.queryForObject("select published_at is not null from outbox_events where id = ?", Boolean.class,
-                eventId)).isTrue();
+        // El mensaje puede recibirse antes de que el publicador confirme y cierre su transaccion.
+        await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
+                assertThat(jdbc.queryForObject("select published_at is not null from outbox_events where id = ?",
+                        Boolean.class, eventId)).isTrue());
 
         // Repetir con la misma clave devuelve lo mismo y no crea más trabajo.
         var replay = send(HttpMethod.POST, path, Map.of(), admin, key);
