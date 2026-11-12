@@ -1,7 +1,9 @@
 package com.plataformaempleo.api.company.infrastructure;
 
+import com.plataformaempleo.api.company.application.CompanyAdminService;
 import com.plataformaempleo.api.company.application.CompanyRegistrationService;
 import com.plataformaempleo.api.company.application.TeamService;
+import com.plataformaempleo.api.company.domain.port.out.CompanyDirectory;
 import com.plataformaempleo.api.company.domain.port.out.CompanyRepository;
 import com.plataformaempleo.api.company.domain.port.out.TeamInvitationMailer;
 import com.plataformaempleo.api.identity.domain.port.out.PasswordHasher;
@@ -17,6 +19,11 @@ import org.springframework.context.annotation.Configuration;
 /** Conecta los casos de uso de empresa con sus adaptadores. */
 @Configuration
 class CompanyConfig {
+
+    @Bean
+    CompanyAdminService companyAdminService(CompanyDirectory companies) {
+        return new CompanyAdminService(companies);
+    }
 
     @Bean
     CompanyRegistrationService companyRegistrationService(CompanyRepository companies, UserRepository users,
