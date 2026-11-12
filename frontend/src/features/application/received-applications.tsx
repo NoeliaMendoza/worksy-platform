@@ -90,15 +90,17 @@ export function ReceivedApplications({ token, vacancyId }: { token: string; vaca
           />
         ) : (
           <ol className="divide-y divide-ink-100 rounded-card bg-white shadow-soft">
-            {state.data.applications.map((a, i) => (
-              <ApplicationRow
-                key={a.id}
-                token={token}
-                vacancyId={vacancyId}
-                application={a}
-                screening={byApplication.get(a.id)}
-                position={i + 1}
-              />
+              {state.data.applications.map((a, i) => (
+                <ApplicationRow
+                  key={a.id}
+                  token={token}
+                  vacancyId={vacancyId}
+                  application={a}
+                  screening={byApplication.get(a.id)}
+                  position={i + 1}
+                />
+              ))}
+            </ol>
             {state.data.map((a, i) => (
               <ApplicationRow key={a.id} token={token} vacancyId={vacancyId} application={a} position={i + 1} />
 
