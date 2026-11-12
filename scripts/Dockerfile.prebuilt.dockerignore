@@ -1,0 +1,8 @@
+**
+!backend/
+!backend/api/
+!backend/api/target/
+!backend/api/target/*.jar
+!backend/worker/
+!backend/worker/target/
+!backend/worker/target/*.jar

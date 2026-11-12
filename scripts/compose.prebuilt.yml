@@ -1,0 +1,9 @@
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: scripts/Dockerfile.prebuilt
+  screening-worker:
+    build:
+      context: ..
+      dockerfile: scripts/Dockerfile.prebuilt
