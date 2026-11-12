@@ -165,7 +165,52 @@ class CandidateCvIntegrationTest {
                 .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 
+    @Test
+    void laEmpresaAbreElCvConUnEnlaceTemporalSoloMientrasHayPermiso() throws Exception {
+        String admin = companyAdmin();
+        String vacancyId = publishedVacancy(admin);
+        String candidate = candidate();
+        byte[] pdf = SyntheticPdf.of("enlace-" + UUID.randomUUID());
+        String cvId = json.readTree(upload(candidate, pdf).getBody()).get("id").asText();
+        send(HttpMethod.PUT, "/api/v1/candidates/me/consents", Map.of("shareWithRecruiters", true, "githubLink", false), candidate);
+        String applicationId = json.readTree(send(HttpMethod.POST, "/api/v1/vacancies/" + vacancyId + "/applications",
+                Map.of("cvId", cvId), candidate).getBody()).get("id").asText();
+        String path = "/api/v1/companies/me/vacancies/" + vacancyId + "/applications/" + applicationId + "/cv";
+
+        var link = send(HttpMethod.GET, path, null, admin);
+        assertThat(link.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode body = json.readTree(link.getBody());
+        assertThat(java.time.Instant.parse(body.get("expiresAt").asText())).isAfter(java.time.Instant.now());
+
+        // El navegador descarga el PDF directamente del almacenamiento, sin sesión y sin pasar por la API.
+        var direct = java.net.http.HttpClient.newHttpClient().send(
+                java.net.http.HttpRequest.newBuilder(URI.create(body.get("url").asText())).GET().build(),
+                java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+        assertThat(direct.statusCode()).isEqualTo(200);
+        assertThat(direct.body()).isEqualTo(pdf);
+        assertThat(direct.headers().firstValue("Content-Type")).hasValue("application/pdf");
+        assertThat(direct.headers().firstValue("Content-Disposition").orElse("")).contains("cv.pdf");
+
+        // Otra empresa no puede pedirlo y, sin permiso de la persona, tampoco la propia.
+        assertThat(send(HttpMethod.GET, path, null, companyAdmin()).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(send(HttpMethod.GET, path, null, candidate).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        send(HttpMethod.PUT, "/api/v1/candidates/me/consents", Map.of("shareWithRecruiters", false, "githubLink", false), candidate);
+        var revoked = send(HttpMethod.GET, path, null, admin);
+        assertThat(revoked.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(code(revoked)).isEqualTo("access.cv-not-shared");
+    }
+
     // ---- utilidades ----
+
+    private String publishedVacancy(String admin) throws Exception {
+        Map<String, Object> vacancy = Map.of("title", "Backend Java", "description", "Equipo de pagos con Spring Boot y PostgreSQL.",
+                "location", "Lima", "modality", "REMOTO", "criteria", List.of(Map.of("label", "Spring Boot",
+                        "question", "¿Tiene experiencia con Spring Boot?", "kind", "YES_NO")));
+        String id = json.readTree(send(HttpMethod.POST, "/api/v1/companies/me/vacancies", vacancy, admin).getBody())
+                .get("id").asText();
+        send(HttpMethod.POST, "/api/v1/companies/me/vacancies/" + id + "/publish", null, admin);
+        return id;
+    }
 
     private static String endpoint() {
         return "http://" + MINIO.getHost() + ":" + MINIO.getMappedPort(9000);

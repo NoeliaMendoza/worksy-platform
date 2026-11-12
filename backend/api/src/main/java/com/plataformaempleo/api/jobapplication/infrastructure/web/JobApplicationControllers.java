@@ -2,6 +2,7 @@ package com.plataformaempleo.api.jobapplication.infrastructure.web;
 
 import com.plataformaempleo.api.jobapplication.application.JobApplicationService;
 import com.plataformaempleo.api.jobapplication.application.JobApplicationService.CandidateView;
+import com.plataformaempleo.api.jobapplication.application.JobApplicationService.CvLink;
 import com.plataformaempleo.api.jobapplication.application.JobApplicationService.RecruiterView;
 import com.plataformaempleo.api.jobapplication.domain.model.JobApplication;
 import com.plataformaempleo.api.shared.infrastructure.web.CurrentActor;
@@ -71,6 +72,16 @@ final class JobApplicationControllers {
         }
     }
 
+    @Schema(name = "CvLink", description = "Enlace temporal de solo lectura al PDF del CV")
+    record CvLinkResponse(
+            @Schema(description = "Abre el PDF directamente desde el almacenamiento; funciona sin sesión hasta expiresAt")
+            String url,
+            Instant expiresAt) {
+        static CvLinkResponse from(CvLink link) {
+            return new CvLinkResponse(link.url().toString(), link.expiresAt());
+        }
+    }
+
     @RestController
     @Tag(name = "Postulaciones", description = "Postular a vacantes publicadas y seguir las postulaciones")
     static class CandidateApplicationController {
@@ -130,6 +141,16 @@ final class JobApplicationControllers {
         @ApiResponse(responseCode = "404", description = "La vacante no existe en esta empresa")
         List<VacancyApplicationResponse> forVacancy(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
             return service.forVacancy(CurrentActor.from(jwt), id).stream().map(VacancyApplicationResponse::from).toList();
+        }
+
+        @GetMapping("/api/v1/companies/me/vacancies/{id}/applications/{applicationId}/cv")
+        @Operation(summary = "Enlace temporal para ver el CV de una postulación",
+                description = "Caduca a los 5 minutos. Solo si la persona mantiene el permiso de compartir su CV.",
+                security = @SecurityRequirement(name = "bearer"))
+        @ApiResponse(responseCode = "403", description = "La persona retiró el permiso de compartir su CV")
+        @ApiResponse(responseCode = "404", description = "La vacante o la postulación no existen en esta empresa")
+        CvLinkResponse cv(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @PathVariable UUID applicationId) {
+            return CvLinkResponse.from(service.cvLink(CurrentActor.from(jwt), id, applicationId));
         }
     }
 }

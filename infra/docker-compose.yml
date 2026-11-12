@@ -136,6 +136,8 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
       STORAGE_ENDPOINT: http://minio:9000
+      # El navegador no conoce "minio": los enlaces temporales se firman con la dirección publicada.
+      STORAGE_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_ENDPOINT:-http://localhost:9000}
       STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
       STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
       STORAGE_BUCKET: ${MINIO_BUCKET_CV:-cv-documents}
