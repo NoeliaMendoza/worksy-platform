@@ -57,6 +57,9 @@ class ScreeningController {
             boolean replayed) {
     }
 
+    @Schema(name = "ScreeningRetry")
+    record RetryResponse(ScreeningResponse request, boolean replayed) { }
+
     private final ScreeningService service;
 
     ScreeningController(ScreeningService service) {
@@ -87,5 +90,21 @@ class ScreeningController {
     @Operation(summary = "Solicitudes de preselección de una vacante", security = @SecurityRequirement(name = "bearer"))
     List<ScreeningResponse> list(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
         return service.forVacancy(CurrentActor.from(jwt), id).stream().map(ScreeningResponse::from).toList();
+    }
+
+    @PostMapping("/{requestId}/retry")
+    @Operation(summary = "Reintentar un análisis fallido",
+            description = "Mantiene la solicitud y el proveedor original; publica un mensaje nuevo. Exige Idempotency-Key.",
+            security = @SecurityRequirement(name = "bearer"))
+    @ApiResponse(responseCode = "202", description = "Reintento aceptado o respuesta de un reintento anterior")
+    @ApiResponse(responseCode = "403", description = "No hay permiso para compartir el CV")
+    @ApiResponse(responseCode = "404", description = "La vacante o el análisis no existen en esta empresa")
+    @ApiResponse(responseCode = "409", description = "El análisis está en proceso o ya terminó correctamente")
+    ResponseEntity<RetryResponse> retry(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+                                        @PathVariable UUID requestId,
+                                        @RequestHeader(name = "Idempotency-Key", required = false) String key) {
+        var result = service.retry(CurrentActor.from(jwt), id, requestId, key);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(new RetryResponse(ScreeningResponse.from(result.request()), result.replayed()));
     }
 }
