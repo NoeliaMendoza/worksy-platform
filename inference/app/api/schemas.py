@@ -25,6 +25,8 @@ class QuestionIn(BaseModel):
     def _choice_needs_options(self) -> "QuestionIn":
         if self.type == "choice" and len(self.criteria) < 2:
             raise ValueError("una pregunta 'choice' necesita al menos dos opciones en 'criteria'")
+        if self.type == "score" and self.criteria and not 2 <= len(self.criteria) <= 10:
+            raise ValueError("una escala 'score' necesita entre 2 y 10 niveles o criteria vacío")
         return self
 
 

@@ -43,3 +43,11 @@ class Decision:
 
 class ProviderNotAvailable(Exception):
     """El proveedor existe en el contrato pero todavía no está implementado o configurado."""
+
+
+class ProviderFailure(Exception):
+    """Fallo de un proveedor configurado, con un mensaje seguro para la respuesta HTTP."""
+
+    def __init__(self, status: int, detail: str):
+        super().__init__(detail)
+        self.status = status

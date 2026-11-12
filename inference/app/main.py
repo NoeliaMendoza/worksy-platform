@@ -11,7 +11,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, CollectorRegistry, Counter, H
 from app.adapters.baseline import BaselineProvider
 from app.adapters.laya import LayaProvider
 from app.api.schemas import AnswerOut, DecideRequest, DecideResponse
-from app.domain.models import DecisionState, ProviderNotAvailable, Question, QuestionType
+from app.domain.models import DecisionState, ProviderFailure, ProviderNotAvailable, Question, QuestionType
 from app.domain.ports import DecisionProvider
 
 
@@ -67,6 +67,9 @@ def create_app(providers: list[DecisionProvider] | None = None) -> FastAPI:
         except ProviderNotAvailable as exc:
             decisions.labels(provider.name, version, "unavailable").inc()
             return _problem(501, "Proveedor no disponible", str(exc))
+        except ProviderFailure as exc:
+            decisions.labels(provider.name, version, "error").inc()
+            return _problem(exc.status, "Error del proveedor", str(exc))
         elapsed = time.perf_counter() - start
 
         latency.labels(provider.name, decision.model_version).observe(elapsed)
