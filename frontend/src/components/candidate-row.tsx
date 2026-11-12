@@ -18,6 +18,7 @@ type CandidateRowProps = {
   candidate: RankedCandidate
   criteria: Criterion[]
   onDecide: (id: string, decision: Decision | null) => void
+  decisionsDisabled?: boolean
 }
 
 /**
@@ -25,7 +26,7 @@ type CandidateRowProps = {
  * quién es y cuánto encaja; un resumen de criterios; la decisión humana.
  * El detalle (la evidencia del CV) queda a un clic.
  */
-export function CandidateRow({ candidate: c, criteria, onDecide }: CandidateRowProps) {
+export function CandidateRow({ candidate: c, criteria, onDecide, decisionsDisabled }: CandidateRowProps) {
   const [open, setOpen] = useState(false)
   const detailId = useId()
   const nameId = useId()
@@ -54,7 +55,7 @@ export function CandidateRow({ candidate: c, criteria, onDecide }: CandidateRowP
             {c.fullName}
           </h3>
           <p className="mt-0.5 text-sm text-ink-500">
-            {c.headline}, {c.location}
+            {[c.headline, c.location].filter(Boolean).join(', ')}
           </p>
         </div>
 
@@ -83,7 +84,7 @@ export function CandidateRow({ candidate: c, criteria, onDecide }: CandidateRowP
           {open && <EvidenceStrip criteria={criteria} answers={c.answers} expanded />}
         </div>
 
-        <DecisionControl value={c.decision} candidateName={c.fullName} onChange={(d) => onDecide(c.id, d)} />
+        <DecisionControl disabled={decisionsDisabled} value={c.decision} candidateName={c.fullName} onChange={(d) => onDecide(c.id, d)} />
       </div>
     </article>
   )

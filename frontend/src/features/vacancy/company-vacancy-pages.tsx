@@ -5,12 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
 import { useAuth } from '@/features/auth/auth-context'
-import { applicationsApi } from '@/features/application/api'
 import { ReceivedApplications } from '@/features/application/received-applications'
-import { RankingView } from '@/features/ranking/ranking-view'
-import type { Vacancy as RankingVacancy } from '@/features/ranking/types'
-import type { RankingState } from '@/features/ranking/use-vacancy-ranking'
-import { myCompany } from '@/features/company/api'
 import { errorMessage } from '@/lib/http'
 import { navigate } from '@/lib/router'
 import { useResource } from '@/lib/use-resource'
@@ -237,44 +232,4 @@ export function CriteriaList({ criteria, title = 'Qué se evalúa en cada CV' }:
   )
 }
 
-/** Ranking de una vacante real. Aún no hay análisis de CV: muestra el estado vacío honesto. */
-export function VacancyRankingPage({ id }: { id: string }) {
-  const token = useToken()
-  const { state, retry } = useResource(
-    () => Promise.all([companyVacancies.get(token, id), myCompany(token), applicationsApi.forVacancy(token, id)]),
-    `ranking:${id}:${token}`,
-    'No se pudo cargar la vacante.',
-  )
-  const ranking: RankingState =
-    state.status === 'ready'
-      ? { status: 'ready', data: { vacancy: toRankingVacancy(state.data[0], state.data[1].name), candidates: [] } }
-      : state.status === 'error'
-        ? { status: 'error', message: state.message }
-        : { status: 'loading' }
-  const received = state.status === 'ready' ? state.data[2].length : 0
-  // Hay postulaciones pero aún no hay preselección: se dice tal cual y se lleva a donde se pueden ver.
-  const empty =
-    received > 0
-      ? {
-          title: received === 1 ? '1 postulación espera la preselección' : `${received} postulaciones esperan la preselección`,
-          description: 'La preselección automática todavía no está activa. Mientras tanto, puedes ver quién se postuló en la vacante.',
-          action: <Button onClick={() => navigate(`/vacantes/${id}`)}>Ver postulaciones</Button>,
-        }
-      : undefined
-  return <RankingView state={ranking} onRetry={retry} onDecide={() => {}} empty={empty} />
-}
-
-function toRankingVacancy(v: CompanyVacancy, companyName: string): RankingVacancy {
-  const words = v.title.split(' ')
-  return {
-    id: v.id,
-    title: { lead: words.slice(0, -1).join(' '), emphasis: words.at(-1) ?? v.title },
-    company: companyName,
-    location: v.location,
-    modality: modalityLabel[v.modality],
-    publishedLabel: v.publishedAt ? `Publicada el ${formatDate(v.publishedAt)}` : 'Sin publicar',
-    criteria: v.criteria.map((c) => ({ id: c.key, label: c.label, question: c.question })),
-    modelVersion: 'sin asignar',
-    analyzedLabel: 'Todavía no hay CV analizados',
-  }
-}
+export { RealRankingPage as VacancyRankingPage } from '@/features/ranking/real-ranking-page'

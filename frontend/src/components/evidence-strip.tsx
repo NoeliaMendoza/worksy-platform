@@ -44,7 +44,9 @@ export function EvidenceStrip({ criteria, answers, expanded = false, id }: Evide
                   <span className="font-medium text-ink-500">({outcomeLabel[a.outcome]})</span>
                 </p>
                 <p className="mt-1.5 leading-relaxed text-ink-700">
-                  {a.evidence ? `“${a.evidence}”` : 'El CV no menciona este criterio.'}
+                  {a.evidence ? `“${a.evidence}”` : a.evidenceUnavailable
+                    ? 'El análisis no incluye una cita del PDF. Comprueba esta respuesta en el CV.'
+                    : 'El CV no menciona este criterio.'}
                 </p>
               </>
             ) : (

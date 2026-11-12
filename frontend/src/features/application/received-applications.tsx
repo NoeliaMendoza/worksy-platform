@@ -1,5 +1,5 @@
 import { EyeOff, FileText, Inbox, ListChecks, LoaderCircle } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { StateMessage } from '@/components/state-message'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -33,7 +33,7 @@ type Data = { applications: ReceivedApplication[]; screenings: ScreeningRequest[
  * Sin permiso de la persona no se muestran sus datos ni se procesa su CV.
  */
 export function ReceivedApplications({ token, vacancyId }: { token: string; vacancyId: string }) {
-  const { state, retry, replace } = useResource<Data>(
+  const { state, retry, refresh, replace } = useResource<Data>(
     async () => {
       const [applications, screenings] = await Promise.all([
         applicationsApi.forVacancy(token, vacancyId),
@@ -48,6 +48,15 @@ export function ReceivedApplications({ token, vacancyId }: { token: string; vaca
   const byApplication = new Map(
     state.status === 'ready' ? state.data.screenings.map((s) => [s.applicationId, s] as const) : [],
   )
+
+  const processing = state.status === 'ready' && state.data.screenings.some(
+    (s) => s.status === 'PENDING' || s.status === 'PROCESSING',
+  )
+  useEffect(() => {
+    if (!processing) return
+    const timer = window.setTimeout(refresh, 5000)
+    return () => window.clearTimeout(timer)
+  }, [processing, state, refresh])
 
   return (
     <section aria-labelledby="postulaciones-recibidas" className="flex flex-col gap-3">
@@ -66,7 +75,9 @@ export function ReceivedApplications({ token, vacancyId }: { token: string; vaca
           <RequestScreening
             token={token}
             vacancyId={vacancyId}
-            onRequested={(created) => replace({ ...state.data, screenings: [...state.data.screenings, ...created] })}
+            onRequested={(created) => replace({ ...state.data,
+              screenings: [...new Map([...state.data.screenings, ...created].map((s) => [s.id, s])).values()],
+            })}
           />
         )}
       </div>
@@ -124,7 +135,7 @@ function RequestScreening({
     try {
       const batch = await screeningApi.request(token, vacancyId, pendingKey.current)
       pendingKey.current = null
-      if (!batch.replayed) onRequested(batch.requests)
+      onRequested(batch.requests)
       setResult({ tone: 'success', text: summary(batch.requests.length, batch.skipped) })
     } catch (err) {
       setResult({ tone: 'error', text: errorMessage(err, 'No se pudo pedir la preselección. Vuelve a intentarlo.') })
