@@ -16,12 +16,15 @@ import { PlatformAuditPage } from '@/features/admin/audit-page'
 import { ComingSoon } from '@/features/home/coming-soon'
 import { RegisterCompanyPage } from '@/features/company/register-company-page'
 import { TeamPage } from '@/features/company/team-page'
+import { MessagesPage } from '@/features/messages/messages-page'
+import { useUnreadMessages } from '@/features/messages/use-unread-messages'
 import { CompanyVacanciesPage } from '@/features/vacancy/company-vacancies-page'
 import { CompanyVacancyPage, NewVacancyPage, VacancyRankingPage } from '@/features/vacancy/company-vacancy-pages'
 import { PublicLayout, PublicVacanciesPage, PublicVacancyPage } from '@/features/vacancy/public-vacancy-pages'
 import type { ReactNode } from 'react'
 import { RankingView } from '@/features/ranking/ranking-view'
 import { useVacancyRanking } from '@/features/ranking/use-vacancy-ranking'
+import { RealtimeProvider } from '@/lib/realtime-provider'
 import { useLocation } from '@/lib/router'
 import type { RankingPreview } from '@/mocks/vacancy-ranking'
 
@@ -58,16 +61,27 @@ function Gate() {
     }
     return <LoginPage />
   }
-  return <Home user={state.user} pathname={pathname} />
+  return <Home user={state.user} token={state.accessToken} pathname={pathname} />
 }
 
 /**
  * Cada rol ve solo lo suyo. Es una separación de interfaz: la API debe aplicar la misma regla
  * en cada endpoint (los datos de candidatos nunca deben llegar a una cuenta de candidato).
  */
-function Home({ user, pathname }: { user: AuthUser; pathname: string }) {
+function Home({ user, token, pathname }: { user: AuthUser; token: string; pathname: string }) {
+  // Candidatos y empresas tienen mensajes: una sola conexión de tiempo real para toda la sesión.
+  if (user.role === 'PLATFORM_ADMIN') return <Workspace user={user} token={token} pathname={pathname} />
+  return (
+    <RealtimeProvider userId={user.id} token={token}>
+      <Workspace user={user} token={token} pathname={pathname} />
+    </RealtimeProvider>
+  )
+}
+
+function Workspace({ user, token, pathname }: { user: AuthUser; token: string; pathname: string }) {
   const { logout } = useAuth()
-  const nav = navigationByRole[user.role]
+  const unread = useUnreadMessages(token, user.role !== 'PLATFORM_ADMIN')
+  const nav = navigationByRole[user.role].map((item) => (item.id === 'mensajes' ? { ...item, badge: unread } : item))
   const section = pathname.replace(/^\/+|\/+$/g, '')
   const shell = {
     nav,
@@ -99,6 +113,7 @@ function pageFor(role: AuthUser['role'], section: string): { current: string; el
   if (role === 'CANDIDATE') {
     if (first === '' || first === 'postulaciones') return { current: 'postulaciones', element: <CandidateHome /> }
     if (first === 'mi-cv') return { current: 'mi-cv', element: <CvPage /> }
+    if (first === 'mensajes') return { current: 'mensajes', element: <MessagesPage applicationId={id} /> }
     if (first === 'vacantes')
       return { current: 'vacantes', element: id ? <PublicVacancyPage key={id} id={id} signedIn /> : <PublicVacanciesPage /> }
     return null
@@ -109,6 +124,7 @@ function pageFor(role: AuthUser['role'], section: string): { current: string; el
     return first === '' || first === 'empresas' ? { current: 'empresas', element: <PlatformAdminHome /> } : null
   }
   if (first === 'equipo') return { current: 'equipo', element: <TeamPage /> }
+  if (first === 'mensajes') return { current: 'mensajes', element: <MessagesPage applicationId={id} /> }
   if (first === '' || first === 'vacantes') {
     const element = !id ? (
       <CompanyVacanciesPage />
