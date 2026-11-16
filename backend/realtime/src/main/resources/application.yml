@@ -4,10 +4,35 @@ spring:
   threads:
     virtual:
       enabled: true
+  # RabbitMQ por AMQP: solo para recibir los eventos de dominio (message.sent).
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:empleo}
+    password: ${RABBITMQ_PASSWORD:}
+    listener:
+      simple:
+        acknowledge-mode: auto
+        # Un evento mal formado no se reintenta: va a la cola de fallidos.
+        default-requeue-rejected: false
 
 server:
   port: 8082
   shutdown: graceful
+
+worksy:
+  realtime:
+    # Mismo secreto e issuer que la API: el realtime solo VALIDA tokens, nunca los emite.
+    jwt-secret: ${JWT_SECRET:}
+    issuer: worksy-api
+    # Orígenes del navegador que pueden abrir el WebSocket (el frontend).
+    allowed-origins: ${APP_PUBLIC_URL:http://localhost:5173}
+    # Broker relay: STOMP de RabbitMQ (sección 14.4 del diseño, decisión del 2026-11-15).
+    relay:
+      host: ${RABBITMQ_HOST:localhost}
+      port: ${RABBITMQ_STOMP_PORT:61613}
+      login: ${RABBITMQ_USER:empleo}
+      passcode: ${RABBITMQ_PASSWORD:}
 
 management:
   endpoints:

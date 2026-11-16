@@ -201,6 +201,14 @@ services:
       dockerfile: Dockerfile
       args:
         MODULE: realtime
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      # Solo valida los tokens de la API: mismo secreto (el realtime nunca los emite).
+      JWT_SECRET: ${JWT_SECRET:-}
+      # Origen del frontend que puede abrir el WebSocket.
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:5173}
     ports:
       - "127.0.0.1:${REALTIME_HOST_PORT:-8083}:8082"
     depends_on:
