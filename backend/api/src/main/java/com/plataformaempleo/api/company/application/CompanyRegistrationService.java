@@ -7,6 +7,9 @@ import com.plataformaempleo.api.identity.domain.model.Role;
 import com.plataformaempleo.api.identity.domain.model.User;
 import com.plataformaempleo.api.identity.domain.port.out.PasswordHasher;
 import com.plataformaempleo.api.identity.domain.port.out.UserRepository;
+import com.plataformaempleo.api.shared.application.Actor;
+import com.plataformaempleo.api.shared.application.AuditRecorder;
+import com.plataformaempleo.api.shared.domain.model.AuditAction;
 import com.plataformaempleo.common.domain.DomainException;
 import java.time.Clock;
 import java.util.Objects;
@@ -19,13 +22,15 @@ public class CompanyRegistrationService {
     private final UserRepository users;
     private final PasswordHasher hasher;
     private final Clock clock;
+    private final AuditRecorder audit;
 
     public CompanyRegistrationService(CompanyRepository companies, UserRepository users, PasswordHasher hasher,
-                                      Clock clock) {
+                                      Clock clock, AuditRecorder audit) {
         this.companies = Objects.requireNonNull(companies);
         this.users = Objects.requireNonNull(users);
         this.hasher = Objects.requireNonNull(hasher);
         this.clock = Objects.requireNonNull(clock);
+        this.audit = Objects.requireNonNull(audit);
     }
 
     @Transactional
@@ -38,6 +43,7 @@ public class CompanyRegistrationService {
         }
         Company saved = companies.save(company);
         User admin = users.save(User.register(email, hasher.hash(password), Role.COMPANY_ADMIN, saved.id(), clock));
+        audit.record(new Actor(admin.id(), admin.role(), saved.id()), AuditAction.COMPANY_REGISTERED, saved.id(), saved.name());
         return new Registered(saved, admin);
     }
 

@@ -8,6 +8,8 @@ import com.plataformaempleo.api.jobapplication.domain.port.out.JobApplicationRep
 import com.plataformaempleo.api.screening.domain.model.ScreeningRequest;
 import com.plataformaempleo.api.screening.domain.port.out.ScreeningRequestRepository;
 import com.plataformaempleo.api.shared.application.Actor;
+import com.plataformaempleo.api.shared.application.AuditRecorder;
+import com.plataformaempleo.api.shared.domain.model.AuditAction;
 import com.plataformaempleo.api.shared.domain.port.out.EventOutbox;
 import com.plataformaempleo.api.shared.domain.port.out.IdempotencyStore;
 import com.plataformaempleo.api.vacancy.domain.model.Vacancy;
@@ -48,10 +50,11 @@ public class ScreeningService {
     private final IdempotencyStore idempotency;
     private final String provider;
     private final Clock clock;
+    private final AuditRecorder audit;
 
     public ScreeningService(ScreeningRequestRepository requests, JobApplicationRepository applications,
                             VacancyRepository vacancies, CandidateProfileRepository profiles, EventOutbox outbox,
-                            IdempotencyStore idempotency, String provider, Clock clock) {
+                            IdempotencyStore idempotency, String provider, Clock clock, AuditRecorder audit) {
         this.requests = Objects.requireNonNull(requests);
         this.applications = Objects.requireNonNull(applications);
         this.vacancies = Objects.requireNonNull(vacancies);
@@ -60,6 +63,7 @@ public class ScreeningService {
         this.idempotency = Objects.requireNonNull(idempotency);
         this.provider = Objects.requireNonNull(provider);
         this.clock = Objects.requireNonNull(clock);
+        this.audit = Objects.requireNonNull(audit);
     }
 
     /**
@@ -111,6 +115,9 @@ public class ScreeningService {
         idempotency.save(actor.userId(), key,
                 new IdempotencyStore.Entry(OPERATION, fingerprint, created.stream().map(ScreeningRequest::id).toList(),
                         skipped));
+        if (!created.isEmpty()) {
+            audit.record(actor, AuditAction.SCREENING_REQUESTED, vacancy.id(), vacancy.content().title());
+        }
         return new Result(created, skipped, false);
     }
 
