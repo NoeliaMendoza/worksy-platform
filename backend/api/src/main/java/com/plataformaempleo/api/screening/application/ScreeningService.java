@@ -38,6 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ScreeningService {
 
     static final String OPERATION = "screening.request";
+    static final String RETRY_OPERATION = "screening.retry";
     static final int MAX_KEY_LENGTH = 100;
 
     private final ScreeningRequestRepository requests;
@@ -119,6 +120,46 @@ public class ScreeningService {
         return requests.findByVacancy(ownVacancy(actor, vacancyId).id());
     }
 
+    public record RetryResult(ScreeningRequest request, boolean replayed) { }
+
+    /** Reutiliza la solicitud fallida y crea un mensaje nuevo, conservando sus intentos e identidad. */
+    @Transactional
+    public RetryResult retry(Actor actor, UUID vacancyId, UUID requestId, String idempotencyKey) {
+        ownVacancy(actor, vacancyId);
+        String key = validKey(idempotencyKey);
+        ScreeningRequest request = requests.findByIds(List.of(requestId)).stream()
+                .filter(r -> r.vacancyId().equals(vacancyId)).findFirst()
+                .orElseThrow(() -> new DomainException("screening.not-found", "El análisis no existe en esta vacante"));
+        JobApplication application = applications.findById(request.applicationId())
+                .filter(a -> a.vacancyId().equals(vacancyId)).orElseThrow(() ->
+                        new DomainException("application.not-found", "La postulación no existe en esta vacante"));
+        if (!sharesWithRecruiters(application.candidateId())) {
+            throw new DomainException("access.cv-not-shared", "La persona retiró el permiso de compartir su CV");
+        }
+        String fingerprint = digest(RETRY_OPERATION + "|" + vacancyId + "|" + requestId);
+        var previous = idempotency.find(actor.userId(), key);
+        if (previous.isPresent()) {
+            var entry = previous.get();
+            if (!entry.operation().equals(RETRY_OPERATION) || !entry.fingerprint().equals(fingerprint)) {
+                throw new DomainException("idempotency.key.reused", "Esa clave ya se usó con otra petición. Usa una clave nueva");
+            }
+            return new RetryResult(request, true);
+        }
+        if (!requests.retryFailed(requestId, clock.instant())) {
+            throw new DomainException("screening.retry.in-use", "Solo se puede reintentar un análisis fallido. Actualiza su estado");
+        }
+        ScreeningRequest retried = requests.findByIds(List.of(requestId)).stream().findFirst()
+                .orElseThrow(() -> new DomainException("screening.not-found", "El análisis ya no existe"));
+        Map<String, Object> retryPayload = payload(retried);
+        retryPayload.put("retry", true);
+        retryPayload.put("retriedBy", actor.userId().toString());
+        // El evento obtiene un id nuevo: processed_messages conserva los mensajes de intentos anteriores.
+        outbox.append("screening_request", retried.id(), EventTypes.SCREENING_REQUESTED, retryPayload);
+        idempotency.save(actor.userId(), key,
+                new IdempotencyStore.Entry(RETRY_OPERATION, fingerprint, List.of(retried.id()), 0));
+        return new RetryResult(retried, false);
+    }
+
     /**
      * @param created  solicitudes creadas (o las de la petición original, si se repitió)
      * @param skipped  postulaciones no incluidas: ya tenían solicitud o la persona no comparte su CV
@@ -165,6 +206,10 @@ public class ScreeningService {
     private static String fingerprint(UUID vacancyId, List<UUID> selection) {
         String raw = OPERATION + "|" + vacancyId + "|"
                 + (selection.isEmpty() ? "*" : selection.stream().map(UUID::toString).collect(Collectors.joining(",")));
+        return digest(raw);
+    }
+
+    private static String digest(String raw) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {

@@ -2,6 +2,7 @@ package com.plataformaempleo.api.screening.infrastructure.persistence;
 
 import com.plataformaempleo.api.screening.domain.model.ScreeningRequest;
 import com.plataformaempleo.api.screening.domain.port.out.ScreeningRequestRepository;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -35,6 +36,12 @@ class ScreeningRequestPersistenceAdapter implements ScreeningRequestRepository {
     public List<ScreeningRequest> findByVacancy(UUID vacancyId) {
         return jpa.findByVacancyIdOrderByRequestedAtAsc(vacancyId).stream()
                 .map(ScreeningRequestPersistenceAdapter::toDomain).toList();
+    }
+
+    @Override
+    @Transactional
+    public boolean retryFailed(UUID requestId, Instant now) {
+        return jpa.retryFailed(requestId, now) == 1;
     }
 
     private static ScreeningRequestJpaEntity toEntity(ScreeningRequest r) {

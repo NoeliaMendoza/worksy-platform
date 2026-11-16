@@ -55,6 +55,12 @@ export const screeningApi = {
     }),
   list: (token: string, vacancyId: string) =>
     apiRequest<ScreeningRequest[]>(`/companies/me/vacancies/${vacancyId}/screenings`, { token }),
+  retry: (token: string, vacancyId: string, requestId: string, idempotencyKey: string) =>
+    apiRequest<{ request: ScreeningRequest; replayed: boolean }>(
+      `/companies/me/vacancies/${vacancyId}/screenings/${requestId}/retry`, {
+        method: 'POST', token, headers: { 'Idempotency-Key': idempotencyKey },
+      },
+    ),
 }
 
 export const applicationsApi = {

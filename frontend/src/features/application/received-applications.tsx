@@ -1,4 +1,4 @@
-import { EyeOff, FileText, Inbox, ListChecks, LoaderCircle } from 'lucide-react'
+import { EyeOff, FileText, Inbox, ListChecks, LoaderCircle, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { StateMessage } from '@/components/state-message'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
@@ -7,6 +7,7 @@ import { Notice } from '@/components/ui/notice'
 import { errorMessage } from '@/lib/http'
 import { useResource } from '@/lib/use-resource'
 import { LoadError, LoadingRows } from '@/features/vacancy/resource-states'
+import { ApiError } from '@/features/auth/api'
 import {
   applicationsApi,
   screeningApi,
@@ -33,7 +34,7 @@ type Data = { applications: ReceivedApplication[]; screenings: ScreeningRequest[
  * Sin permiso de la persona no se muestran sus datos ni se procesa su CV.
  */
 export function ReceivedApplications({ token, vacancyId }: { token: string; vacancyId: string }) {
-  const { state, retry, refresh, replace } = useResource<Data>(
+  const { state, retry, refresh, update } = useResource<Data>(
     async () => {
       const [applications, screenings] = await Promise.all([
         applicationsApi.forVacancy(token, vacancyId),
@@ -75,9 +76,9 @@ export function ReceivedApplications({ token, vacancyId }: { token: string; vaca
           <RequestScreening
             token={token}
             vacancyId={vacancyId}
-            onRequested={(created) => replace({ ...state.data,
-              screenings: [...new Map([...state.data.screenings, ...created].map((s) => [s.id, s])).values()],
-            })}
+            onRequested={(created) => update((current) => ({ ...current,
+              screenings: [...new Map([...current.screenings, ...created].map((s) => [s.id, s])).values()],
+            }))}
           />
         )}
       </div>
@@ -103,6 +104,10 @@ export function ReceivedApplications({ token, vacancyId }: { token: string; vaca
                 application={a}
                 screening={byApplication.get(a.id)}
                 position={i + 1}
+                onRetried={(next) => update((current) => ({ ...current,
+                  screenings: current.screenings.map((s) => s.id === next.id ? next : s),
+                }))}
+                onRefresh={refresh}
               />
             ))}
           </ol>
@@ -180,12 +185,16 @@ function ApplicationRow({
   application: a,
   screening,
   position,
+  onRetried,
+  onRefresh,
 }: {
   token: string
   vacancyId: string
   application: ReceivedApplication
   screening: ScreeningRequest | undefined
   position: number
+  onRetried: (request: ScreeningRequest) => void
+  onRefresh: () => void
 }) {
   const [opening, setOpening] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -248,7 +257,56 @@ function ApplicationRow({
           </Button>
         )}
       </div>
+      {a.shared && screening?.status === 'FAILED' && (
+        <RetryScreening token={token} vacancyId={vacancyId} requestId={screening.id}
+          candidateName={a.candidateEmail ?? 'esta postulación'} onRetried={onRetried} onRefresh={onRefresh} />
+      )}
       {error && <Notice tone="error">{error}</Notice>}
     </li>
+  )
+}
+
+function RetryScreening({ token, vacancyId, requestId, candidateName, onRetried, onRefresh }: {
+  token: string
+  vacancyId: string
+  requestId: string
+  candidateName: string
+  onRetried: (request: ScreeningRequest) => void
+  onRefresh: () => void
+}) {
+  const pendingKey = useRef<string | null>(null)
+  const busy = useRef(false)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function retry() {
+    if (busy.current) return
+    busy.current = true
+    pendingKey.current ??= crypto.randomUUID()
+    setSending(true)
+    setError(null)
+    try {
+      const result = await screeningApi.retry(token, vacancyId, requestId, pendingKey.current)
+      pendingKey.current = null
+      onRetried(result.request)
+    } catch (err) {
+      setError(errorMessage(err, 'No se pudo solicitar el reintento. Vuelve a intentarlo.'))
+      if (err instanceof ApiError && [403, 404, 409].includes(err.status)) onRefresh()
+    } finally {
+      busy.current = false
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2 sm:pl-10">
+      <Button variant="secondary" size="sm" onClick={() => void retry()} disabled={sending}
+        aria-label={`Reintentar el análisis de ${candidateName}`}>
+        {sending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
+        {sending ? 'Solicitando reintento…' : 'Reintentar análisis'}
+      </Button>
+      <p className="text-sm text-ink-500">Si vuelve a fallar, abre el CV para revisarlo.</p>
+      {error && <Notice tone="error">{error}</Notice>}
+    </div>
   )
 }
