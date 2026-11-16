@@ -12,6 +12,8 @@ const buttonVariants = cva(
         secondary: 'bg-white text-navy-900 ring-1 ring-ink-100 ring-inset hover:bg-azure-50 hover:ring-azure-200',
         ghost: 'text-ink-700 hover:bg-azure-100 hover:text-navy-900',
         inverse: 'bg-white text-navy-900 hover:bg-azure-100',
+        /** Acción principal sobre fondos navy (pantallas de acceso). */
+        accent: 'bg-azure-600 text-white hover:bg-azure-500',
       },
       size: {
         sm: 'h-8 px-3 text-xs',

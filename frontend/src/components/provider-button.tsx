@@ -24,9 +24,9 @@ function ProviderMark({ id }: { id: Provider['id'] }) {
     )
   }
   return (
-    <svg viewBox="0 0 16 16" aria-hidden="true" className="size-[1.125rem] shrink-0">
+    <svg viewBox="0 0 16 16" aria-hidden="true" className="size-[1.125rem] shrink-0 text-[#181717] group-data-[surface=dark]/surface:text-white">
       <path
-        fill="#181717"
+        fill="currentColor"
         d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"
       />
     </svg>
@@ -43,7 +43,7 @@ export function ProviderButton({ provider, className }: { provider: Provider; cl
       href={provider.authorizationUrl}
       aria-label={`Continuar con ${provider.name}`}
       className={cn(
-        'inline-flex h-11 w-full min-w-0 items-center justify-center gap-1.5 rounded-full bg-white px-1 sm:gap-2 sm:px-2 text-[13px] font-semibold text-ink-900 ring-1 ring-ink-300 transition-colors ring-inset hover:bg-azure-50 hover:ring-azure-400',
+        'inline-flex h-11 w-full min-w-0 items-center justify-center gap-1.5 rounded-full bg-white px-1 sm:gap-2 sm:px-2 text-[13px] font-semibold text-ink-900 ring-1 ring-ink-300 transition-colors ring-inset hover:bg-azure-50 hover:ring-azure-400 group-data-[surface=dark]/surface:bg-transparent group-data-[surface=dark]/surface:text-white group-data-[surface=dark]/surface:ring-white/25 group-data-[surface=dark]/surface:hover:bg-white/5 group-data-[surface=dark]/surface:hover:ring-white/50',
         className,
       )}
     >

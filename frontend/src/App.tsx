@@ -5,6 +5,7 @@ import { useAuth } from '@/features/auth/auth-context'
 import { AuthProvider } from '@/features/auth/auth-provider'
 import { ForgotPasswordPage } from '@/features/auth/forgot-password-page'
 import { LoginPage } from '@/features/auth/login-page'
+import { RegisterPage } from '@/features/auth/register-page'
 import { ResetPasswordPage } from '@/features/auth/reset-password-page'
 import { CandidateHome } from '@/features/home/candidate-home'
 import { CvPage } from '@/features/cv/cv-page'
@@ -46,6 +47,7 @@ function Gate() {
   if (state.status === 'checking') return <Splash />
   if (state.status === 'anonymous') {
     if (pathname === '/recuperar') return <ForgotPasswordPage />
+    if (pathname === '/registro') return <RegisterPage />
     if (pathname === '/registro-empresa') return <RegisterCompanyPage />
     const [first, id] = pathname.split('/').filter(Boolean)
     if (first === 'vacantes') {

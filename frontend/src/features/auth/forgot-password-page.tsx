@@ -22,7 +22,7 @@ export function ForgotPasswordPage() {
     e.preventDefault()
     setFormError('')
     const value = email.trim()
-    const found = !value ? 'Escribe tu correo.' : !EMAIL_PATTERN.test(value) ? 'Escribe un correo válido, por ejemplo nombre@empresa.com.' : ''
+    const found = !value ? 'Escribe tu correo.' : !EMAIL_PATTERN.test(value) ? 'Escribe un correo válido, por ejemplo nombre@correo.com.' : ''
     setError(found)
     if (found) return document.getElementById(emailId)?.focus()
 
@@ -48,7 +48,7 @@ export function ForgotPasswordPage() {
         Volver a iniciar sesión
       </AppLink>
 
-      <h1 className="mt-6 text-3xl leading-tight font-light tracking-tight text-navy-900">
+      <h1 className="mt-6 text-4xl leading-tight font-light tracking-tight text-white">
         Recupera tu <span className="font-semibold">contraseña</span>
       </h1>
 
@@ -62,14 +62,14 @@ export function ForgotPasswordPage() {
               spam.
             </p>
           </Notice>
-          <div className="flex items-start gap-3 text-sm text-ink-500">
+          <div className="flex items-start gap-3 text-sm text-azure-200">
             <MailCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <p>
               ¿No llegó?{' '}
               <button
                 type="button"
                 onClick={() => setSentTo(null)}
-                className="cursor-pointer font-semibold text-azure-600 underline-offset-4 hover:text-navy-900 hover:underline"
+                className="cursor-pointer font-semibold text-azure-300 underline-offset-4 hover:text-white hover:underline"
               >
                 Pedir otro enlace
               </button>
@@ -78,7 +78,7 @@ export function ForgotPasswordPage() {
         </div>
       ) : (
         <>
-          <p className="mt-2 text-base text-ink-700">
+          <p className="mt-2 text-base text-azure-200">
             Escribe el correo de tu cuenta y te enviaremos un enlace para elegir una nueva.
           </p>
           {formError && (
@@ -95,7 +95,7 @@ export function ForgotPasswordPage() {
                 autoComplete="email"
                 autoCapitalize="none"
                 spellCheck={false}
-                placeholder="nombre@empresa.com"
+                placeholder="nombre@correo.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 aria-invalid={error ? true : undefined}
@@ -103,7 +103,7 @@ export function ForgotPasswordPage() {
                 readOnly={submitting}
               />
             </Field>
-            <Button type="submit" className="h-12 w-full text-base" disabled={submitting}>
+            <Button type="submit" variant="accent" className="h-12 w-full text-base" disabled={submitting}>
               {submitting && <LoaderCircle className="animate-spin" aria-hidden="true" />}
               {submitting ? 'Enviando enlace…' : 'Enviar enlace'}
             </Button>

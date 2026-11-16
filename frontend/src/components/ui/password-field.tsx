@@ -27,7 +27,7 @@ export function PasswordField({ id, label, error, hint, ...input }: PasswordFiel
           aria-controls={id}
           aria-pressed={visible}
           aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full py-1 text-sm font-semibold text-azure-600 hover:text-navy-900"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full py-1 text-sm font-semibold text-azure-600 hover:text-navy-900 group-data-[surface=dark]/surface:text-azure-300 group-data-[surface=dark]/surface:hover:text-white"
         >
           {visible ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
           {visible ? 'Ocultar' : 'Mostrar'}
@@ -35,7 +35,7 @@ export function PasswordField({ id, label, error, hint, ...input }: PasswordFiel
       }
     >
       {hint && (
-        <p id={`${id}-hint`} className="-mt-1 text-sm text-ink-500">
+        <p id={`${id}-hint`} className="-mt-1 text-sm text-ink-500 group-data-[surface=dark]/surface:text-azure-200">
           {hint}
         </p>
       )}
