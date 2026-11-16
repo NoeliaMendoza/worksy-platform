@@ -54,6 +54,7 @@ jobs:
           cache-dependency-path: inference/requirements*.txt
       - run: pip install -r requirements-dev.txt
       - run: python -m pytest -q
+      - run: python -m compileall -q ../scripts
 
   frontend:
     name: Frontend (Node 24)
@@ -79,3 +80,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker compose -f infra/docker-compose.yml --env-file .env.example --profile dev config --quiet
+      - run: docker compose -f scripts/compose.smoke.yml --profile tools --profile laya config --quiet
+      - run: docker compose -f scripts/compose.smoke.yml -f scripts/compose.prebuilt.yml --profile tools --profile laya config --quiet

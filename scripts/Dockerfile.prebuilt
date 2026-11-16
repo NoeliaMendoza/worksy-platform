@@ -1,0 +1,7 @@
+# Alternativa de prueba cuando los JAR ya se compilaron con Maven en el equipo.
+FROM eclipse-temurin:21-jre
+ARG MODULE
+WORKDIR /app
+COPY backend/${MODULE}/target/${MODULE}-*.jar /app/app.jar
+USER 10001
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]

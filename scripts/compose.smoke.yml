@@ -1,0 +1,148 @@
+# Entorno separado, sin puertos publicados ni datos de la instalación de desarrollo.
+name: worksy-smoke
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: smoke
+      POSTGRES_USER: smoke
+      POSTGRES_PASSWORD: password-sintetico-postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smoke -d smoke"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  rabbitmq:
+    image: rabbitmq:4.1-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: smoke
+      RABBITMQ_DEFAULT_PASS: password-sintetico-rabbit
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  redis:
+    image: redis:8-alpine
+
+  minio:
+    image: plataforma-empleo/minio:RELEASE.2025-10-15T17-29-55Z
+    environment:
+      MINIO_ROOT_USER: smoke-admin
+      MINIO_ROOT_PASSWORD: password-sintetico-minio
+    command: ["server", "/data"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  minio-init:
+    image: plataforma-empleo/minio:RELEASE.2025-10-15T17-29-55Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    volumes:
+      - ../infra/minio/cv-policy.json:/policy/cv-policy.json:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        mc alias set local http://minio:9000 smoke-admin password-sintetico-minio &&
+        mc mb --ignore-existing local/cv-smoke &&
+        mc anonymous set none local/cv-smoke &&
+        sed 's/BUCKET_CV/cv-smoke/' /policy/cv-policy.json > /tmp/policy.json &&
+        mc admin policy create local smoke-cv /tmp/policy.json &&
+        mc admin user add local smoke-storage password-sintetico-storage &&
+        mc admin policy attach local smoke-cv --user smoke-storage
+
+  api:
+    build:
+      context: ../backend
+      args:
+        MODULE: api
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/smoke
+      DB_USER: smoke
+      DB_PASSWORD: password-sintetico-postgres
+      JWT_SECRET: clave-sintetica-solo-para-smoke-0123456789abcdef
+      AUTH_COOKIE_SECURE: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: smoke
+      RABBITMQ_PASSWORD: password-sintetico-rabbit
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_PUBLIC_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: smoke-storage
+      STORAGE_SECRET_KEY: password-sintetico-storage
+      STORAGE_BUCKET: cv-smoke
+      SCREENING_PROVIDER: ${SMOKE_PROVIDER:-baseline}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  inference:
+    build:
+      context: ../inference
+    environment:
+      LAYA_BASE_URL: ${SMOKE_LAYA_BASE_URL:-}
+      LAYA_MODEL: smoke-multilingual
+      LAYA_MODEL_VERSION: ${SMOKE_LAYA_MODEL_VERSION:-laya-ml@1720e3e3357cfe1e281542e223f8273b0890ca34}
+      LAYA_TIMEOUT_SECONDS: "4"
+      LAYA_MAX_LEN: "8192"
+
+  screening-worker:
+    build:
+      context: ../backend
+      args:
+        MODULE: worker
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/smoke
+      DB_USER: smoke
+      DB_PASSWORD: password-sintetico-postgres
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: smoke
+      RABBITMQ_PASSWORD: password-sintetico-rabbit
+      REDIS_HOST: redis
+      INFERENCE_URL: http://inference:8000
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_ACCESS_KEY: smoke-storage
+      STORAGE_SECRET_KEY: password-sintetico-storage
+      STORAGE_BUCKET: cv-smoke
+    depends_on:
+      api:
+        condition: service_started
+      inference:
+        condition: service_started
+
+  laya:
+    profiles: ["laya"]
+    image: ${SMOKE_LAYA_IMAGE:-worksy-laya-cpu:review}
+    command: ["laya-serve"]
+    environment:
+      LAYA_DEVICE: cpu
+      LAYA_PRELOAD: "1"
+      LAYA_MODELS: smoke-multilingual
+      LAYA_DEFAULT_MODEL: smoke-multilingual
+      LAYA_EXTRA_MODELS: '{"smoke-multilingual":"convaiinnovations/laya-multilingual"}'
+      LAYA_REVISION: "1720e3e3357cfe1e281542e223f8273b0890ca34"
+      LAYA_THREADS: "4"
+      OMP_NUM_THREADS: "4"
+    volumes:
+      - laya-model-cache:/home/laya/.cache/huggingface
+
+  smoke:
+    profiles: ["tools"]
+    build:
+      context: ../inference
+    volumes:
+      - ./:/bench:ro
+    command: ["python", "/bench/smoke_screening.py", "--api-url", "http://api:8080", "--provider", "${SMOKE_PROVIDER:-baseline}"]
+
+volumes:
+  laya-model-cache:
