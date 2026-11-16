@@ -6,6 +6,7 @@ import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Notice } from '@/components/ui/notice'
 import { PasswordField } from '@/components/ui/password-field'
+import { AccountTypeSwitch } from '@/features/auth/account-type-switch'
 import { useAuth } from '@/features/auth/auth-context'
 import { AuthLayout } from '@/features/auth/auth-layout'
 import { EMAIL_PATTERN, PASSWORD_MAX, PASSWORD_MIN } from '@/features/auth/validation'
@@ -61,10 +62,12 @@ export function RegisterCompanyPage() {
         <ArrowLeft className="size-4" aria-hidden="true" />
         Volver a iniciar sesión
       </AppLink>
-      <h1 className="mt-6 text-3xl leading-tight font-light tracking-tight text-navy-900">
+      <h1 className="mt-6 text-4xl leading-tight font-light tracking-tight text-white">
         Registra tu <span className="font-semibold">empresa</span>
       </h1>
-      <p className="mt-2 text-base text-ink-700">Crea la cuenta de tu empresa. Después podrás invitar a tu equipo.</p>
+      <p className="mt-2 text-base text-azure-200">Crea la cuenta de tu empresa. Después podrás invitar a tu equipo.</p>
+
+      <AccountTypeSwitch current="/registro-empresa" />
 
       {formError && (
         <Notice tone="error" autoFocus className="mt-6">
@@ -111,13 +114,13 @@ export function RegisterCompanyPage() {
           onChange={(e) => setPassword(e.target.value)}
           readOnly={submitting}
         />
-        <Button type="submit" className="mt-1 h-12 w-full text-base" disabled={submitting}>
+        <Button type="submit" variant="accent" className="mt-1 h-12 w-full text-base" disabled={submitting}>
           {submitting && <LoaderCircle className="animate-spin" aria-hidden="true" />}
           {submitting ? 'Registrando…' : 'Registrar empresa'}
         </Button>
       </form>
 
-      <p className="mt-7 border-t border-ink-100 pt-5 text-sm leading-relaxed text-ink-500">
+      <p className="mt-7 border-t border-white/10 pt-5 text-sm leading-relaxed text-azure-200">
         Tu cuenta será la de administración de la empresa: podrás publicar vacantes e invitar a tu equipo de selección.
       </p>
     </AuthLayout>

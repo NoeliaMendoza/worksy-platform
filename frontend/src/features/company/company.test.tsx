@@ -190,12 +190,17 @@ describe('Rutas de la empresa', () => {
     expect(within(nav).getByRole('link', { name: 'Mensajes' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('sin sesión, /registro-empresa abre el registro y el login enlaza a él', async () => {
+  it('sin sesión, desde el login se llega al registro de empresa eligiendo el tipo de cuenta', async () => {
     routes({ 'POST /api/v1/auth/refresh': () => json(401, { code: 'auth.refresh.invalid' }) })
+    const user = userEvent.setup()
     render(<App />)
-    const link = await screen.findByRole('link', { name: 'Regístrala' })
-    expect(link).toHaveAttribute('href', '/registro-empresa')
-    await userEvent.setup().click(link)
+    await user.click(await screen.findByRole('link', { name: 'Créala gratis' }))
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Crea tu cuenta')
+    const types = screen.getByRole('navigation', { name: 'Tipo de cuenta' })
+    expect(within(types).getByRole('link', { name: 'Busco empleo' })).toHaveAttribute('aria-current', 'page')
+    await user.click(within(types).getByRole('link', { name: 'Soy una empresa' }))
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Registra tu empresa')
+    expect(within(screen.getByRole('navigation', { name: 'Tipo de cuenta' })).getByRole('link', { name: 'Soy una empresa' }))
+      .toHaveAttribute('aria-current', 'page')
   })
 })

@@ -63,7 +63,7 @@ export function ResetPasswordPage() {
           title="Falta el enlace"
           description="Abre esta página desde el enlace del correo de recuperación, o pide uno nuevo."
           action={<AppLink href="/recuperar">Pedir un enlace nuevo</AppLink>}
-          className="bg-transparent px-0 py-4 shadow-none"
+          className="py-10"
         />
       </AuthLayout>
     )
@@ -71,7 +71,7 @@ export function ResetPasswordPage() {
 
   return (
     <AuthLayout>
-      <h1 className="text-3xl leading-tight font-light tracking-tight text-navy-900">
+      <h1 className="text-4xl leading-tight font-light tracking-tight text-white">
         {invitation ? (
           <>
             Activa tu <span className="font-semibold">cuenta</span>
@@ -98,7 +98,7 @@ export function ResetPasswordPage() {
               </>
             )}
           </Notice>
-          <Button className="h-12 w-full text-base" onClick={() => navigate('/')}>
+          <Button variant="accent" className="h-12 w-full text-base" onClick={() => navigate('/')}>
             Iniciar sesión
           </Button>
         </div>
@@ -113,7 +113,7 @@ export function ResetPasswordPage() {
         </div>
       ) : (
         <>
-          <p className="mt-2 text-base text-ink-700">
+          <p className="mt-2 text-base text-azure-200">
             {invitation
               ? 'Elige la contraseña con la que entrarás a Worksy.'
               : 'Al guardarla, se cerrarán tus sesiones abiertas.'}
@@ -143,7 +143,7 @@ export function ResetPasswordPage() {
               onChange={(e) => setConfirm(e.target.value)}
               readOnly={submitting}
             />
-            <Button type="submit" className="h-12 w-full text-base" disabled={submitting}>
+            <Button type="submit" variant="accent" className="h-12 w-full text-base" disabled={submitting}>
               {submitting && <LoaderCircle className="animate-spin" aria-hidden="true" />}
               {submitting ? 'Guardando…' : invitation ? 'Activar cuenta' : 'Guardar contraseña'}
             </Button>

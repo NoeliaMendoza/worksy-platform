@@ -17,13 +17,13 @@ export function Field({ id, label, error, aside, children, className }: FieldPro
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <div className="flex items-center justify-between gap-3">
-        <label htmlFor={id} className="text-sm font-semibold text-ink-900">
+        <label htmlFor={id} className="text-sm font-semibold text-ink-900 group-data-[surface=dark]/surface:text-white">
           {label}
         </label>
         {aside}
       </div>
       {children}
-      <p id={`${id}-error`} className={cn('text-sm text-low-700', !error && 'sr-only')}>
+      <p id={`${id}-error`} className={cn('text-sm text-low-700 group-data-[surface=dark]/surface:text-low-100', !error && 'sr-only')}>
         {error}
       </p>
     </div>

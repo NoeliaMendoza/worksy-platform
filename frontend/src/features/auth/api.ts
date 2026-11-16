@@ -76,6 +76,15 @@ export function login(email: string, password: string) {
   })
 }
 
+/** Alta pública de una cuenta de candidato. Después se inicia sesión con `login`. */
+export function registerCandidate(email: string, password: string) {
+  return request<AuthUser>('/register', {
+    method: 'POST',
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ email, password }),
+  })
+}
+
 let refreshInFlight: Promise<TokenResponse> | null = null
 
 /**

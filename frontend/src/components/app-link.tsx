@@ -14,7 +14,7 @@ export function AppLink({ href, className, onClick, ...props }: ComponentProps<'
     <a
       href={href}
       onClick={handle}
-      className={cn('rounded font-semibold text-azure-600 underline-offset-4 hover:text-navy-900 hover:underline', className)}
+      className={cn('rounded font-semibold text-azure-600 underline-offset-4 hover:text-navy-900 hover:underline group-data-[surface=dark]/surface:text-azure-300 group-data-[surface=dark]/surface:hover:text-white', className)}
       {...props}
     />
   )
