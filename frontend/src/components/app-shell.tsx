@@ -5,12 +5,12 @@ import { cn } from '@/lib/cn'
 import { navigate } from '@/lib/router'
 
 /** Opción de la navegación principal. Cada rol define las suyas. */
-export type NavItem = { id: string; label: string; icon: LucideIcon }
+export type NavItem = { id: string; label: string; icon: LucideIcon; /** Contador (p. ej., mensajes sin leer). */ badge?: number }
 
 function NavList({ items, current, onNavigate }: { items: NavItem[]; current: string; onNavigate?: () => void }) {
   return (
     <ul className="flex flex-col gap-1">
-      {items.map(({ id, label, icon: Icon }) => {
+      {items.map(({ id, label, icon: Icon, badge }) => {
         const active = id === current
         return (
           <li key={id}>
@@ -24,6 +24,7 @@ function NavList({ items, current, onNavigate }: { items: NavItem[]; current: st
                 onNavigate?.()
               }}
               aria-current={active ? 'page' : undefined}
+              aria-label={badge ? `${label}, ${badge} sin leer` : undefined}
               className={cn(
                 'flex items-center gap-3 rounded-full px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-azure-300',
                 active ? 'bg-white text-navy-900' : 'text-azure-200 hover:bg-white/10 hover:text-white',
@@ -31,6 +32,11 @@ function NavList({ items, current, onNavigate }: { items: NavItem[]; current: st
             >
               <Icon className="size-4" aria-hidden="true" />
               {label}
+              {badge ? (
+                <span aria-hidden="true" className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-azure-500 px-1.5 text-xs font-semibold text-white">
+                  {badge}
+                </span>
+              ) : null}
             </a>
           </li>
         )

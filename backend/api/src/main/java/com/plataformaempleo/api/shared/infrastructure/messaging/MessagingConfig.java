@@ -39,4 +39,24 @@ class MessagingConfig {
         Binding failedBinding = BindingBuilder.bind(failed).to(deadLetters).with(Messaging.SCREENING_REQUESTED_DLQ);
         return new Declarables(events, deadLetters, requested, failed, requestedBinding, failedBinding);
     }
+
+    /**
+     * Cola de avisos del servicio de tiempo real. La declara también la API para que un mensaje enviado antes
+     * de que arranque el realtime no se pierda. Debe coincidir EXACTAMENTE con la declaración del realtime.
+     */
+    @Bean
+    Declarables realtimeTopology() {
+        TopicExchange events = new TopicExchange(Messaging.EVENTS_EXCHANGE, true, false);
+        DirectExchange deadLetters = new DirectExchange(Messaging.DEAD_LETTER_EXCHANGE, true, false);
+        Queue notifications = QueueBuilder.durable(Messaging.REALTIME_NOTIFICATIONS_QUEUE)
+                .quorum()
+                .ttl(Messaging.REALTIME_NOTIFICATIONS_TTL_MS)
+                .deadLetterExchange(Messaging.DEAD_LETTER_EXCHANGE)
+                .deadLetterRoutingKey(Messaging.REALTIME_NOTIFICATIONS_DLQ)
+                .build();
+        Queue failed = QueueBuilder.durable(Messaging.REALTIME_NOTIFICATIONS_DLQ).quorum().build();
+        return new Declarables(notifications, failed,
+                BindingBuilder.bind(notifications).to(events).with(EventTypes.MESSAGE_SENT),
+                BindingBuilder.bind(failed).to(deadLetters).with(Messaging.REALTIME_NOTIFICATIONS_DLQ));
+    }
 }

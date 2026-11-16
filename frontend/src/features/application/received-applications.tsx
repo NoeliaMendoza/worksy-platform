@@ -1,10 +1,11 @@
-import { EyeOff, FileText, Inbox, ListChecks, LoaderCircle, RefreshCw } from 'lucide-react'
+import { EyeOff, FileText, Inbox, ListChecks, LoaderCircle, MessageSquare, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { StateMessage } from '@/components/state-message'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
 import { errorMessage } from '@/lib/http'
+import { navigate } from '@/lib/router'
 import { useResource } from '@/lib/use-resource'
 import { LoadError, LoadingRows } from '@/features/vacancy/resource-states'
 import { ApiError } from '@/features/auth/api'
@@ -254,6 +255,17 @@ function ApplicationRow({
           >
             {opening ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <FileText aria-hidden="true" />}
             Ver CV
+          </Button>
+        )}
+        {a.shared && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate(`/mensajes/${a.id}`)}
+            aria-label={`Escribir a ${a.candidateEmail ?? 'esta persona'}`}
+          >
+            <MessageSquare aria-hidden="true" />
+            Mensaje
           </Button>
         )}
       </div>

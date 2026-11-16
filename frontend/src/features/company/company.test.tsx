@@ -182,12 +182,12 @@ describe('Rutas de la empresa', () => {
   })
 
   it('una sección sin pantalla avisa con claridad', async () => {
-    window.history.replaceState(null, '', '/mensajes')
+    window.history.replaceState(null, '', '/entrevistas')
     signedInAs('RECRUITER')
     render(<App />)
     expect(await screen.findByText('Esta sección todavía no está disponible')).toBeInTheDocument()
     const nav = screen.getAllByRole('navigation', { name: 'Principal' })[0]!
-    expect(within(nav).getByRole('link', { name: 'Mensajes' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Entrevistas' })).toHaveAttribute('aria-current', 'page')
   })
 
   it('sin sesión, desde el login se llega al registro de empresa eligiendo el tipo de cuenta', async () => {

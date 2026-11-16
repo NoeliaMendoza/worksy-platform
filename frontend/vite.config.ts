@@ -17,6 +17,8 @@ export default defineConfig({
     // las URL de regreso del login externo con la dirección del frontend, no con la suya.
     proxy: {
       '/api': { target: process.env.API_PROXY_TARGET ?? 'http://localhost:8080', changeOrigin: false, xfwd: true },
+      // WebSocket del servicio de tiempo real (STOMP). REALTIME_PROXY_TARGET permite apuntar a otra instancia.
+      '/ws': { target: process.env.REALTIME_PROXY_TARGET ?? 'http://localhost:8083', ws: true, changeOrigin: false },
     },
   },
   test: {

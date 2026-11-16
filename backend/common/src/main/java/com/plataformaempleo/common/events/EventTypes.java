@@ -8,6 +8,8 @@ public final class EventTypes {
 
     public static final String SCREENING_REQUESTED = "screening.requested";
     public static final String SCREENING_COMPLETED = "screening.completed";
+    /** Mensaje nuevo en una conversación. Lleva solo ids (nunca el texto): quien lo recibe lo pide a la API. */
+    public static final String MESSAGE_SENT = "message.sent";
 
     private EventTypes() {
     }
