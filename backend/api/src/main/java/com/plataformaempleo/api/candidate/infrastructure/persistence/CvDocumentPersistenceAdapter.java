@@ -22,7 +22,7 @@ class CvDocumentPersistenceAdapter implements CvDocumentRepository {
     @Transactional
     public CvDocument save(CvDocument d) {
         return toDomain(jpa.saveAndFlush(new CvDocumentJpaEntity(d.id(), d.candidateId(), d.storageKey(), d.sha256(),
-                d.mime(), d.sizeBytes(), d.status().name(), d.language(), d.uploadedAt())));
+                d.mime(), d.sizeBytes(), d.status().name(), d.language(), d.uploadedAt(), d.originalName())));
     }
 
     @Override
@@ -59,6 +59,6 @@ class CvDocumentPersistenceAdapter implements CvDocumentRepository {
 
     private static CvDocument toDomain(CvDocumentJpaEntity e) {
         return new CvDocument(e.getId(), e.getCandidateId(), e.getStorageKey(), e.getSha256(), e.getMime(),
-                e.getSizeBytes(), CvDocument.Status.valueOf(e.getStatus()), e.getLanguage(), e.getUploadedAt());
+                e.getSizeBytes(), CvDocument.Status.valueOf(e.getStatus()), e.getLanguage(), e.getUploadedAt(), e.getOriginalName());
     }
 }

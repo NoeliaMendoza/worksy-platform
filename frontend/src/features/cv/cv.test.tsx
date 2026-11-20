@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -14,7 +14,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock)
 })
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -69,6 +69,89 @@ describe('Revisión previa del archivo', () => {
 })
 
 describe('CvPage', () => {
+  it('identifica el archivo por nombre y no pide su enlace hasta abrir la vista previa', async () => {
+    routes({ 'GET /api/v1/candidates/me/cv': () => json(200, [{ ...cv('cv-1'), originalName: 'mi-cv-backend.pdf' }]),
+      'GET /api/v1/candidates/me/consents': () => json(200, noConsents),
+      'GET /api/v1/candidates/me/cv/cv-1/link': () => json(200, { url: 'https://almacenamiento.test/privado.pdf', expiresAt: '2099-11-18T20:00:00Z' }),
+    })
+    render(asCandidate(<CvPage />))
+    expect(await screen.findByText('mi-cv-backend.pdf')).toBeInTheDocument()
+    expect(calls('GET /api/v1/candidates/me/cv/cv-1/link')).toHaveLength(0)
+    await userEvent.click(screen.getByRole('button', { name: /^Vista previa de mi-cv-backend.pdf/ }))
+    expect(await screen.findByTitle('Vista previa de mi-cv-backend.pdf')).toHaveAttribute('src', 'https://almacenamiento.test/privado.pdf#view=FitH&navpanes=0')
+    expect(screen.getByRole('link', { name: 'Abrir PDF' })).toHaveAttribute('rel', 'noopener noreferrer')
+    expect(screen.getByRole('link', { name: 'Abrir PDF' })).toHaveAttribute('referrerpolicy', 'no-referrer')
+    await userEvent.click(screen.getByRole('button', { name: 'Cerrar vista previa' }))
+    expect(screen.queryByTitle('Vista previa de mi-cv-backend.pdf')).not.toBeInTheDocument()
+  })
+
+  it('permite recuperar un error del visor sin perder archivos ni permisos', async () => {
+    let fail = true
+    routes({ 'GET /api/v1/candidates/me/cv': () => json(200, [cv('cv-1')]),
+      'GET /api/v1/candidates/me/consents': () => json(200, noConsents),
+      'GET /api/v1/candidates/me/cv/cv-1/link': () => fail ? problem(503, 'storage.unavailable', 'x')
+        : json(200, { url: 'https://almacenamiento.test/cv.pdf', expiresAt: '2099-11-18T20:00:00Z' }),
+    })
+    render(asCandidate(<CvPage />))
+    await userEvent.click(await screen.findByRole('button', { name: /^Vista previa de CV subido el/ }))
+    expect(await screen.findByRole('button', { name: 'Reintentar vista previa' })).toBeInTheDocument()
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('heading', { name: 'Tus archivos' })).toBeInTheDocument()
+    fail = false
+    await userEvent.click(screen.getByRole('button', { name: 'Reintentar vista previa' }))
+    expect(await screen.findByTitle('Vista previa de CV en PDF')).toBeInTheDocument()
+  })
+
+  it('al volver de una pestaña oculta retira el enlace vencido y permite renovarlo', async () => {
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2099-11-18T19:59:00Z'))
+    routes({ 'GET /api/v1/candidates/me/cv': () => json(200, [cv('cv-1')]),
+      'GET /api/v1/candidates/me/consents': () => json(200, noConsents),
+      'GET /api/v1/candidates/me/cv/cv-1/link': () => json(200, { url: 'https://almacenamiento.test/cv.pdf', expiresAt: '2099-11-18T20:00:00Z' }),
+    })
+    render(asCandidate(<CvPage />))
+    await userEvent.click(await screen.findByRole('button', { name: /^Vista previa de CV subido el/ }))
+    await screen.findByTitle('Vista previa de CV en PDF')
+    clock.mockReturnValue(Date.parse('2099-11-18T20:01:00Z'))
+    act(() => document.dispatchEvent(new Event('visibilitychange')))
+    expect(screen.queryByTitle('Vista previa de CV en PDF')).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Abrir PDF' })).not.toBeInTheDocument()
+    expect(screen.getByText(/El enlace temporal venció/)).toBeInTheDocument()
+    clock.mockReturnValue(Date.parse('2099-11-18T19:59:00Z'))
+    await userEvent.click(screen.getByRole('button', { name: 'Actualizar vista previa' }))
+    expect(await screen.findByTitle('Vista previa de CV en PDF')).toBeInTheDocument()
+    expect(calls('GET /api/v1/candidates/me/cv/cv-1/link')).toHaveLength(2)
+  })
+
+  it('al cambiar de archivo quita el PDF anterior y pide el enlace correspondiente', async () => {
+    routes({ 'GET /api/v1/candidates/me/cv': () => json(200, [{ ...cv('a'), originalName: 'backend.pdf' }, { ...cv('b'), originalName: 'frontend.pdf' }]),
+      'GET /api/v1/candidates/me/consents': () => json(200, noConsents),
+      'GET /api/v1/candidates/me/cv/a/link': () => json(200, { url: 'https://almacenamiento.test/a.pdf', expiresAt: '2099-11-18T20:00:00Z' }),
+      'GET /api/v1/candidates/me/cv/b/link': () => json(200, { url: 'https://almacenamiento.test/b.pdf', expiresAt: '2099-11-18T20:00:00Z' }),
+    })
+    render(asCandidate(<CvPage />))
+    await userEvent.click(await screen.findByRole('button', { name: /^Vista previa de backend.pdf/ }))
+    await screen.findByTitle('Vista previa de backend.pdf')
+    await userEvent.click(screen.getByRole('button', { name: /^Vista previa de frontend.pdf/ }))
+    expect(await screen.findByTitle('Vista previa de frontend.pdf')).toHaveAttribute('src', 'https://almacenamiento.test/b.pdf#view=FitH&navpanes=0')
+    expect(screen.queryByTitle('Vista previa de backend.pdf')).not.toBeInTheDocument()
+  })
+
+  it('un CV en uso permanece en la lista y conserva su vista previa al rechazar el borrado', async () => {
+    routes({ 'GET /api/v1/candidates/me/cv': () => json(200, [cv('cv-1')]),
+      'GET /api/v1/candidates/me/consents': () => json(200, noConsents),
+      'GET /api/v1/candidates/me/cv/cv-1/link': () => json(200, { url: 'https://almacenamiento.test/cv.pdf', expiresAt: '2099-11-18T20:00:00Z' }),
+      'DELETE /api/v1/candidates/me/cv/cv-1': () => problem(409, 'cv.in-use', 'Este CV está en una postulación'),
+    })
+    render(asCandidate(<CvPage />))
+    await userEvent.click(await screen.findByRole('button', { name: /^Vista previa de CV subido el/ }))
+    await screen.findByTitle('Vista previa de CV en PDF')
+    await userEvent.click(screen.getByRole('button', { name: /^Eliminar CV subido el/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Eliminar CV' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Este CV está en una postulación')
+    expect(screen.getByTitle('Vista previa de CV en PDF')).toBeInTheDocument()
+    expect(screen.getByText('1 de 5')).toBeInTheDocument()
+  })
+
   it('sin CV invita a subirlo y la privacidad empieza desactivada', async () => {
     routes({ 'GET /api/v1/candidates/me/cv': () => json(200, []), 'GET /api/v1/candidates/me/consents': () => json(200, noConsents) })
     render(asCandidate(<CvPage />))

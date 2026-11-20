@@ -90,6 +90,7 @@ class CandidateCvIntegrationTest {
         JsonNode body = json.readTree(uploaded.getBody());
         String id = body.get("id").asText();
         assertThat(body.get("status").asText()).isEqualTo("UPLOADED");
+        assertThat(body.get("originalName").asText()).isEqualTo("cv-sintetico.pdf");
         // El contrato no expone la llave de almacenamiento ni el hash.
         assertThat(body.has("storageKey")).isFalse();
         assertThat(body.has("sha256")).isFalse();
@@ -97,6 +98,22 @@ class CandidateCvIntegrationTest {
 
         JsonNode list = json.readTree(send(HttpMethod.GET, "/api/v1/candidates/me/cv", null, token).getBody());
         assertThat(list.findValuesAsText("id")).containsExactly(id);
+        assertThat(list.get(0).get("originalName").asText()).isEqualTo("cv-sintetico.pdf");
+
+        // El propietario puede abrir su PDF aun con el consentimiento desactivado.
+        String ownLinkPath = "/api/v1/candidates/me/cv/" + id + "/link";
+        var ownLink = send(HttpMethod.GET, ownLinkPath, null, token);
+        assertThat(ownLink.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(ownLink.getHeaders().getCacheControl()).contains("no-store");
+        JsonNode signed = json.readTree(ownLink.getBody());
+        var ownPdf = java.net.http.HttpClient.newHttpClient().send(java.net.http.HttpRequest.newBuilder(URI.create(signed.get("url").asText())).GET().build(),
+                java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+        assertThat(ownPdf.statusCode()).isEqualTo(200);
+        assertThat(ownPdf.headers().firstValue("Cache-Control").orElse("")).contains("no-store");
+        assertThat(ownPdf.body()).startsWith("%PDF".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        assertThat(send(HttpMethod.GET, ownLinkPath, null, candidate()).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(send(HttpMethod.GET, ownLinkPath, null, companyAdmin()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(send(HttpMethod.GET, ownLinkPath, null, null).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
 
         assertThat(send(HttpMethod.DELETE, "/api/v1/candidates/me/cv/" + id, null, token).getStatusCode())
                 .isEqualTo(HttpStatus.NO_CONTENT);

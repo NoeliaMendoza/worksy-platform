@@ -38,11 +38,14 @@ class CvDocumentJpaEntity {
     @Column(name = "uploaded_at", nullable = false, updatable = false)
     private Instant uploadedAt;
 
+    @Column(name = "original_name", length = 180)
+    private String originalName;
+
     protected CvDocumentJpaEntity() {
     }
 
     CvDocumentJpaEntity(UUID id, UUID candidateId, String storageKey, String sha256, String mime, long sizeBytes,
-                        String status, String language, Instant uploadedAt) {
+                        String status, String language, Instant uploadedAt, String originalName) {
         this.id = id;
         this.candidateId = candidateId;
         this.storageKey = storageKey;
@@ -52,6 +55,7 @@ class CvDocumentJpaEntity {
         this.status = status;
         this.language = language;
         this.uploadedAt = uploadedAt;
+        this.originalName = originalName;
     }
 
     UUID getId() { return id; }
@@ -63,4 +67,5 @@ class CvDocumentJpaEntity {
     String getStatus() { return status; }
     String getLanguage() { return language; }
     Instant getUploadedAt() { return uploadedAt; }
+    String getOriginalName() { return originalName; }
 }
