@@ -1,7 +1,7 @@
 import { EyeOff, FileText, Inbox, ListChecks, LoaderCircle, MessageSquare, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { StateMessage } from '@/components/state-message'
-import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
 import { errorMessage } from '@/lib/http'
@@ -10,6 +10,7 @@ import { useResource } from '@/lib/use-resource'
 import { LoadError, LoadingRows } from '@/features/vacancy/resource-states'
 import { ApiError } from '@/features/auth/api'
 import { screeningFailureMessage } from './screening-failure'
+import { screeningLabel } from './screening-labels'
 import { ApplicationProgressPanel } from './application-progress'
 import { stageLabel } from './stage-labels'
 import {
@@ -17,19 +18,10 @@ import {
   screeningApi,
   type ReceivedApplication,
   type ScreeningRequest,
-  type ScreeningStatus,
 } from './api'
 
 const dateTime = new Intl.DateTimeFormat('es', { dateStyle: 'long', timeStyle: 'short' })
 
-/** Estado de la preselección en palabras. Nunca dice "preseleccionado": eso lo decide una persona. */
-const screeningLabel: Record<ScreeningStatus, { text: string; tone: NonNullable<BadgeProps['tone']> }> = {
-  PENDING: { text: 'En cola de análisis', tone: 'neutral' },
-  PROCESSING: { text: 'Analizando', tone: 'azure' },
-  COMPLETED: { text: 'Análisis listo', tone: 'high' },
-  NEEDS_REVIEW: { text: 'Análisis con dudas', tone: 'mid' },
-  FAILED: { text: 'No se pudo analizar', tone: 'low' },
-}
 
 type Data = { applications: ReceivedApplication[]; screenings: ScreeningRequest[] }
 

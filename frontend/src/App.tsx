@@ -17,6 +17,7 @@ import { PlatformAuditPage } from '@/features/admin/audit-page'
 import { ComingSoon } from '@/features/home/coming-soon'
 import { RegisterCompanyPage } from '@/features/company/register-company-page'
 import { TeamPage } from '@/features/company/team-page'
+import { CandidatesPage } from '@/features/candidates/candidates-page'
 import { MessagesPage } from '@/features/messages/messages-page'
 import { useUnreadMessages } from '@/features/messages/use-unread-messages'
 import { CompanyVacanciesPage } from '@/features/vacancy/company-vacancies-page'
@@ -148,6 +149,7 @@ function pageFor(role: AuthUser['role'], section: string): { current: string; el
     return first === '' || first === 'empresas' ? { current: 'empresas', element: <PlatformAdminHome /> } : null
   }
   if (first === 'equipo') return { current: 'equipo', element: <TeamPage /> }
+  if (first === 'candidatos') return { current: 'candidatos', element: <CandidatesPage applicationId={id} /> }
   if (first === 'mensajes') return { current: 'mensajes', element: <MessagesPage applicationId={id} /> }
   if (first === '' || first === 'vacantes') {
     const element = !id ? (
