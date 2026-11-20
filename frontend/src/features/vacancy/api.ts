@@ -4,6 +4,23 @@ export type Modality = 'PRESENCIAL' | 'HIBRIDO' | 'REMOTO'
 export type VacancyStatus = 'DRAFT' | 'PUBLISHED' | 'CLOSED'
 export type CriterionKind = 'YES_NO' | 'CHOICE'
 
+export interface OfferDetails {
+  contractType: 'INDEFINITE' | 'FIXED_TERM' | 'SERVICES' | 'INTERNSHIP' | 'OTHER' | null
+  workSchedule: 'FULL_TIME' | 'PART_TIME' | 'FLEXIBLE' | null
+  area: string | null
+  experienceLevel: string | null
+  responsibilities: string | null
+  requirements: string | null
+  desirable: string | null
+  benefits: string | null
+  schedule: string | null
+  remoteConditions: string | null
+  salaryMin: number | null
+  salaryMax: number | null
+  currency: string | null
+  salaryPeriod: 'HOUR' | 'MONTH' | 'YEAR' | null
+}
+
 export interface Criterion {
   key: string
   label: string
@@ -14,6 +31,7 @@ export interface Criterion {
 
 /** Lo que la empresa edita. Las claves de los criterios las asigna la API. */
 export interface VacancyInput {
+  offer?: OfferDetails | null
   title: string
   description: string
   location: string
@@ -22,6 +40,7 @@ export interface VacancyInput {
 }
 
 export interface CompanyVacancy {
+  offer?: OfferDetails | null
   id: string
   title: string
   description: string
@@ -45,6 +64,7 @@ export interface PublicVacancySummary {
 }
 
 export interface PublicVacancy extends PublicVacancySummary {
+  offer?: OfferDetails | null
   description: string
   criteria: Criterion[]
 }

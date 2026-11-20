@@ -58,7 +58,7 @@ final class VacancyControllers {
             var v = p.vacancy();
             var c = v.content();
             return new PublicDetail(v.id(), c.title(), p.companyName(), c.description(), c.location(), c.modality(),
-                    v.publishedAt(), c.criteria().stream().map(CriterionResponse::from).toList());
+                    v.publishedAt(), c.criteria().stream().map(CriterionResponse::from).toList(), c.offer());
         }
 
         private static PublicSummary summary(PublishedVacancy p) {

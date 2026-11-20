@@ -2,6 +2,7 @@ package com.plataformaempleo.api.vacancy.infrastructure.web;
 
 import com.plataformaempleo.api.vacancy.domain.model.Criterion;
 import com.plataformaempleo.api.vacancy.domain.model.Vacancy;
+import com.plataformaempleo.api.vacancy.domain.model.OfferDetails;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -22,12 +23,14 @@ final class VacancyDtos {
             @Schema(example = "Buscamos una persona para el equipo de pagos...") @Size(max = 50_000) String description,
             @Schema(example = "Lima") String location,
             @Schema(example = "HIBRIDO") @NotNull Vacancy.Modality modality,
-            @Valid @Size(max = Vacancy.MAX_CRITERIA) List<CriterionRequest> criteria) {
+            @Valid @Size(max = Vacancy.MAX_CRITERIA) List<CriterionRequest> criteria,
+            @Schema(description = "Condiciones públicas de empleo; salario opcional. Para publicar: contrato, jornada, responsabilidades y requisitos. Ausente en vacantes antiguas.") OfferDetails offer) {
 
         Vacancy.Content toContent() {
             List<Vacancy.CriterionInput> inputs = criteria == null ? List.of()
                     : criteria.stream().map(c -> new Vacancy.CriterionInput(c.label(), c.question(), c.kind(), c.options())).toList();
-            return Vacancy.Content.of(title, description, location, modality, inputs);
+            var base = Vacancy.Content.of(title, description, location, modality, inputs);
+            return new Vacancy.Content(base.title(), base.description(), base.location(), base.modality(), base.criteria(), offer);
         }
     }
 
@@ -49,12 +52,12 @@ final class VacancyDtos {
     @Schema(name = "CompanyVacancy", description = "Vacante vista por su empresa")
     record CompanyVacancyResponse(UUID id, String title, String description, String location, Vacancy.Modality modality,
                                   Vacancy.Status status, List<CriterionResponse> criteria, Instant createdAt,
-                                  Instant updatedAt, Instant publishedAt, Instant closedAt) {
+                                  Instant updatedAt, Instant publishedAt, Instant closedAt, OfferDetails offer) {
         static CompanyVacancyResponse from(Vacancy v) {
             var c = v.content();
             return new CompanyVacancyResponse(v.id(), c.title(), c.description(), c.location(), c.modality(), v.status(),
                     c.criteria().stream().map(CriterionResponse::from).toList(), v.createdAt(), v.updatedAt(),
-                    v.publishedAt(), v.closedAt());
+                    v.publishedAt(), v.closedAt(), c.offer());
         }
     }
 
@@ -63,8 +66,8 @@ final class VacancyDtos {
                          Instant publishedAt) {
     }
 
-    @Schema(name = "PublicVacancy", description = "Vacante publicada con su descripción y lo que se evaluará")
+    @Schema(name = "PublicVacancy", description = "Vacante publicada con descripción y condiciones públicas de empleo")
     record PublicDetail(UUID id, String title, String companyName, String description, String location,
-                        Vacancy.Modality modality, Instant publishedAt, List<CriterionResponse> criteria) {
+                        Vacancy.Modality modality, Instant publishedAt, List<CriterionResponse> criteria, OfferDetails offer) {
     }
 }

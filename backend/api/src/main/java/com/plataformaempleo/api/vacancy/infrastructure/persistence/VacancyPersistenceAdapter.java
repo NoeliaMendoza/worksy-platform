@@ -51,9 +51,11 @@ class VacancyPersistenceAdapter implements VacancyRepository {
         List<CriterionJson> criteria = c.criteria().stream()
                 .map(k -> new CriterionJson(k.key(), k.label(), k.question(), k.kind().name(), k.options()))
                 .toList();
-        return new VacancyJpaEntity(v.id(), v.companyId(), v.createdBy(), c.title(), c.description(), c.location(),
+        var entity = new VacancyJpaEntity(v.id(), v.companyId(), v.createdBy(), c.title(), c.description(), c.location(),
                 c.modality().name(), v.status().name(), criteria, v.createdAt(), v.updatedAt(), v.publishedAt(),
                 v.closedAt());
+        entity.setOffer(c.offer());
+        return entity;
     }
 
     private static Vacancy toDomain(VacancyJpaEntity e) {
@@ -61,7 +63,7 @@ class VacancyPersistenceAdapter implements VacancyRepository {
                 .map(k -> new Criterion(k.key(), k.label(), k.question(), Criterion.Kind.valueOf(k.kind()), k.options()))
                 .toList();
         var content = new Vacancy.Content(e.getTitle(), e.getDescription(), e.getLocation(),
-                Vacancy.Modality.valueOf(e.getModality()), criteria);
+                Vacancy.Modality.valueOf(e.getModality()), criteria, e.getOffer());
         return new Vacancy(e.getId(), e.getCompanyId(), e.getCreatedBy(), content, Vacancy.Status.valueOf(e.getStatus()),
                 e.getCreatedAt(), e.getUpdatedAt(), e.getPublishedAt(), e.getClosedAt());
     }
