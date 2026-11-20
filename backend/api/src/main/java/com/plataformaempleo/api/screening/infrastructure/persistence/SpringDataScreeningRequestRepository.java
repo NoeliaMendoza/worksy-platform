@@ -14,7 +14,7 @@ interface SpringDataScreeningRequestRepository extends JpaRepository<ScreeningRe
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update ScreeningRequestJpaEntity r set r.status = 'PENDING', r.modelVersion = null, "
-            + "r.overallScore = null, r.confidence = null, r.updatedAt = :now "
+            + "r.overallScore = null, r.confidence = null, r.failureCode = null, r.evidenceMethod = null, r.sourceTextSha256 = null, r.updatedAt = :now "
             + "where r.id = :id and r.status = 'FAILED'")
     int retryFailed(@Param("id") UUID requestId, @Param("now") Instant now);
 }

@@ -22,7 +22,7 @@ public interface ScreeningStore {
     void complete(ScreeningContext context, String messageId, ScreeningOutcome outcome);
 
     /** Deja la solicitud FAILED (si aún no estaba resuelta) y registra el mensaje como procesado. */
-    void fail(UUID requestId, String messageId);
+    void fail(UUID requestId, String messageId, String failureCode);
 
     /** Registra el mensaje como procesado sin tocar la solicitud (duplicado de algo ya resuelto). */
     void markMessageProcessed(String messageId);

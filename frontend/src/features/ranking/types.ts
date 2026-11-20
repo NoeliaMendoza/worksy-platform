@@ -12,13 +12,21 @@ export type Decision = 'preseleccionado' | 'en_espera' | 'descartado'
 /** Resultado de un criterio de la vacante según la evidencia encontrada en el CV. */
 export type CriterionOutcome = 'cumple' | 'parcial' | 'no_cumple'
 
+export interface TextEvidence {
+  method: string
+  sourceTextSha256: string
+  snippets: { text: string; startOffset: number; endOffset: number }[]
+}
+
 export interface CriterionAnswer {
   criterionId: string
   /** Respuesta corta del modelo, p. ej. "Sí" o "3 a 5 años". */
   answer: string
   outcome: CriterionOutcome
-  /** Fragmento del CV que respalda la respuesta. Vacío si no hay evidencia. */
+  /** Fragmento de los datos de ejemplo; el ranking real usa evidenceDetails. */
   evidence: string
+  /** Coincidencias del texto extraído; no demuestran que la respuesta sea correcta. */
+  evidenceDetails?: TextEvidence | null
   /** El proveedor devolvió una respuesta, pero no una cita del PDF. */
   evidenceUnavailable?: boolean
 }

@@ -22,10 +22,10 @@ public class S3CvFiles implements CvFiles {
         try {
             return s3.getObjectAsBytes(b -> b.bucket(bucket).key(storageKey)).asByteArray();
         } catch (NoSuchKeyException e) {
-            throw ScreeningFailure.permanent("El archivo del CV no existe en el almacenamiento");
+            throw ScreeningFailure.permanent("CV_NOT_FOUND", "El archivo del CV no existe en el almacenamiento");
         } catch (SdkException e) {
             // El SDK ya reintentó; si sigue fallando, el almacenamiento no está disponible.
-            throw ScreeningFailure.transientFailure("Almacenamiento no disponible", e);
+            throw new ScreeningFailure("STORAGE_UNAVAILABLE", "Almacenamiento no disponible", true, e);
         }
     }
 }

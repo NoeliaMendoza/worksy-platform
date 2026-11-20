@@ -15,6 +15,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 public class RankingService {
     private final RankingRepository results;
@@ -33,7 +34,7 @@ public class RankingService {
 
     public record Ranking(List<RankingResult> candidates, long received, long pending, long failed, long notRequested) { }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Ranking get(Actor actor, UUID vacancyId) {
         requireOwnVacancy(actor, vacancyId);
         List<RankingResult> shared = results.findSharedByVacancy(vacancyId, provider);

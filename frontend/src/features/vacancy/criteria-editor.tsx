@@ -29,12 +29,11 @@ export function CriteriaEditor({ value, onChange, disabled }: Props) {
   return (
     <section aria-labelledby="criterios-titulo" className="flex flex-col gap-4">
       <div>
-        <h2 id="criterios-titulo" className="text-lg font-semibold text-ink-900">
+        <h2 id="criterios-titulo" className="text-base font-semibold text-ink-900">
           Qué se evaluará en cada CV
         </h2>
         <p className="mt-1 text-sm text-ink-500">
-          El modelo responde cada pregunta con la evidencia del CV para ordenar la revisión. Las personas candidatas
-          también las verán.
+          El modelo responde cada pregunta con la evidencia del CV para ordenar la revisión interna de la empresa.
         </p>
       </div>
 

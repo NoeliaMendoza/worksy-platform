@@ -91,7 +91,8 @@ describe('EvidenceStrip', () => {
   it('muestra la cita del CV al expandir y avisa si no hay evidencia', () => {
     render(<EvidenceStrip criteria={vacancy.criteria} answers={candidates[4]!.answers} expanded />)
     expect(screen.getByText(/módulo de citas con Spring Boot/)).toBeInTheDocument()
-    expect(screen.getByText('El CV no menciona este criterio.')).toBeInTheDocument()
+    expect(screen.getByText('No hay un fragmento disponible para este criterio. Revisa el CV completo.')).toBeInTheDocument()
+    expect(screen.queryByText('El CV no menciona este criterio.')).not.toBeInTheDocument()
   })
 })
 

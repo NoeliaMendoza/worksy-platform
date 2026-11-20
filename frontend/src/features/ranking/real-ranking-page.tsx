@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
 import { useAuth } from '@/features/auth/auth-context'
+import { applicationsApi } from '@/features/application/api'
 import { myCompany } from '@/features/company/api'
 import { companyVacancies, type CompanyVacancy } from '@/features/vacancy/api'
 import { formatDate, modalityLabel } from '@/features/vacancy/labels'
@@ -35,6 +36,7 @@ function toView(v: CompanyVacancy, company: string, results: RankingResponse): V
         criterionId: a.criterionId, answer: a.answer || 'Sin respuesta',
         outcome: a.score === 1 ? 'cumple' : a.score === 0 ? 'no_cumple' : 'parcial',
         evidence: '', evidenceUnavailable: true,
+        evidenceDetails: a.evidence?.method === 'label-terms-v1' ? a.evidence : null,
       })),
       decision: c.decision,
     })),
@@ -50,6 +52,8 @@ export function RealRankingPage({ id }: { id: string }) {
   )
   const [saving, setSaving] = useState(false)
   const busy = useRef(false)
+  const cvBusy = useRef(false)
+  const [openingCvId, setOpeningCvId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<{ tone: 'success' | 'error'; text: string } | null>(null)
   const results = state.status === 'ready' ? state.data[2] : null
 
@@ -58,6 +62,28 @@ export function RealRankingPage({ id }: { id: string }) {
     const timer = window.setTimeout(refresh, 5000)
     return () => window.clearTimeout(timer)
   }, [results, saving, refresh])
+
+  async function openCv(applicationId: string) {
+    if (cvBusy.current) return
+    cvBusy.current = true
+    setOpeningCvId(applicationId)
+    setFeedback(null)
+    let tab: Window | null = null
+    try {
+      tab = window.open('', '_blank')
+      if (tab) tab.opener = null
+      const { url } = await applicationsApi.cvLink(token, id, applicationId)
+      if (tab && !tab.closed) tab.location.href = url
+      else if (!tab) window.location.assign(url)
+    } catch (err) {
+      tab?.close()
+      setFeedback({ tone: 'error', text: errorMessage(err, 'No se pudo abrir el CV original. Vuelve a intentarlo.') })
+      refresh()
+    } finally {
+      cvBusy.current = false
+      setOpeningCvId(null)
+    }
+  }
 
   async function decide(applicationId: string, decision: Decision | null) {
     if (busy.current || state.status !== 'ready') return
@@ -95,7 +121,7 @@ export function RealRankingPage({ id }: { id: string }) {
   return (
     <>
       {results && (
-        <div className="mx-auto flex max-w-[88rem] flex-col gap-3 px-4 pt-6 sm:px-8">
+        <div className="flex w-full max-w-[1440px] flex-col gap-3 px-4 pt-5 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p role="status" className="text-sm text-ink-700">
               {results.candidates.length} analizados · {results.pending} en proceso · {results.failed} fallidos · {results.notRequested} sin solicitar
@@ -109,7 +135,8 @@ export function RealRankingPage({ id }: { id: string }) {
           {saving && <p role="status">Guardando decisión…</p>}
         </div>
       )}
-      <RankingView state={ranking} onRetry={retry} onDecide={decide} decisionsDisabled={saving} empty={empty} />
+      <RankingView state={ranking} onRetry={retry} onDecide={decide} decisionsDisabled={saving} empty={empty}
+        onOpenCv={(applicationId) => void openCv(applicationId)} openingCvId={openingCvId} />
     </>
   )
 }

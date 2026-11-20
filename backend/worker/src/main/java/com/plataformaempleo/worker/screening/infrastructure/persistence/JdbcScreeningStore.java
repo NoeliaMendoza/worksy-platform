@@ -77,7 +77,7 @@ public class JdbcScreeningStore implements ScreeningStore {
     @Override
     @Transactional
     public void markProcessing(UUID requestId) {
-        jdbc.update("update screening_requests set status = 'PROCESSING', attempts = attempts + 1, updated_at = ? "
+        jdbc.update("update screening_requests set status = 'PROCESSING', failure_code = null, evidence_method = null, source_text_sha256 = null, attempts = attempts + 1, updated_at = ? "
                 + "where id = ? and status in ('PENDING', 'PROCESSING')", now(), requestId);
     }
 
@@ -87,14 +87,17 @@ public class JdbcScreeningStore implements ScreeningStore {
         recordMessage(messageId);
         jdbc.update("delete from screening_answers where request_id = ?", context.requestId());
         jdbc.batchUpdate("insert into screening_answers (id, request_id, question_key, choice, probability, score, "
-                        + "latency_ms) values (?, ?, ?, ?, ?, ?, ?)",
+                        + "latency_ms, evidence) values (?, ?, ?, ?, ?, ?, ?, cast(? as jsonb))",
                 outcome.results().stream().map(r -> new Object[] {UUID.randomUUID(), context.requestId(),
-                        r.questionKey(), r.choice(), decimal(r.probability()), decimal(r.score()), r.latencyMs()})
+                        r.questionKey(), r.choice(), decimal(r.probability()), decimal(r.score()), r.latencyMs(),
+                        toJson(outcome.evidence() == null ? List.of() : outcome.evidence().forCriterion(r.questionKey()))})
                         .toList());
         String status = outcome.needsReview() ? "NEEDS_REVIEW" : "COMPLETED";
-        jdbc.update("update screening_requests set status = ?, model_version = ?, overall_score = ?, confidence = ?, "
-                        + "updated_at = ? where id = ?",
-                status, outcome.modelVersion(), decimal(outcome.overallScore()), decimal(outcome.confidence()), now(),
+        jdbc.update("update screening_requests set status = ?, failure_code = null, model_version = ?, overall_score = ?, confidence = ?, "
+                        + "evidence_method = ?, source_text_sha256 = ?, updated_at = ? where id = ?",
+                status, outcome.modelVersion(), decimal(outcome.overallScore()), decimal(outcome.confidence()),
+                outcome.evidence() == null ? null : outcome.evidence().method(),
+                outcome.evidence() == null ? null : outcome.evidence().sourceTextSha256(), now(),
                 context.requestId());
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("screeningRequestId", context.requestId().toString());
@@ -107,11 +110,11 @@ public class JdbcScreeningStore implements ScreeningStore {
 
     @Override
     @Transactional
-    public void fail(UUID requestId, String messageId) {
+    public void fail(UUID requestId, String messageId, String failureCode) {
         recordMessage(messageId);
         // Nunca pisa un resultado ya guardado (p. ej., si otro mensaje terminó antes).
-        jdbc.update("update screening_requests set status = 'FAILED', updated_at = ? "
-                + "where id = ? and status in ('PENDING', 'PROCESSING')", now(), requestId);
+        jdbc.update("update screening_requests set status = 'FAILED', failure_code = ?, updated_at = ? "
+                + "where id = ? and status in ('PENDING', 'PROCESSING')", failureCode, now(), requestId);
     }
 
     @Override

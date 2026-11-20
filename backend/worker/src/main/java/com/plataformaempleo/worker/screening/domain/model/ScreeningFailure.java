@@ -12,10 +12,24 @@ package com.plataformaempleo.worker.screening.domain.model;
 public class ScreeningFailure extends RuntimeException {
 
     private final boolean retryable;
+    private final String code;
 
     public ScreeningFailure(String message, boolean retryable, Throwable cause) {
+        this("UNKNOWN", message, retryable, cause);
+    }
+
+    public ScreeningFailure(String code, String message, boolean retryable, Throwable cause) {
         super(message, cause);
+        this.code = code;
         this.retryable = retryable;
+    }
+
+    public String code() {
+        return code;
+    }
+
+    public static ScreeningFailure permanent(String code, String message) {
+        return new ScreeningFailure(code, message, false, null);
     }
 
     public static ScreeningFailure permanent(String message) {

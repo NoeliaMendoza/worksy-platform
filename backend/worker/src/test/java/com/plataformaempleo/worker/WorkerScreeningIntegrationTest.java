@@ -151,6 +151,14 @@ class WorkerScreeningIntegrationTest {
                 .isEqualTo(1.0);
         assertThat(jdbc.queryForObject("select choice from screening_answers where request_id = ?", String.class, requestId))
                 .isEqualTo("Sí");
+        assertThat(jdbc.queryForObject("select evidence_method from screening_requests where id = ?", String.class, requestId))
+                .isEqualTo("label-terms-v1");
+        assertThat(jdbc.queryForObject("select source_text_sha256 from screening_requests where id = ?", String.class, requestId))
+                .matches("[0-9a-f]{64}");
+        assertThat(jdbc.queryForObject("select evidence->0->>'text' from screening_answers where request_id = ?", String.class, requestId))
+                .isEqualTo("Desarrolladora backend con experiencia en Spring Boot y Java");
+        assertThat(jdbc.queryForObject("select (evidence->0->>'startOffset')::int from screening_answers where request_id = ?", Integer.class, requestId))
+                .isZero();
         assertThat(jdbc.queryForObject("select count(*) from outbox_events where aggregate_id = ? and event_type = ?",
                 Integer.class, requestId, EventTypes.SCREENING_COMPLETED)).isEqualTo(1);
         assertThat(jdbc.queryForObject("select count(*) from processed_messages where message_id = ?", Integer.class,
@@ -173,6 +181,8 @@ class WorkerScreeningIntegrationTest {
         publish(UUID.randomUUID().toString(), requestId);
 
         assertThat(awaitFinalStatus(requestId)).isEqualTo("FAILED");
+        assertThat(jdbc.queryForObject("select failure_code from screening_requests where id = ?", String.class,
+                requestId)).isEqualTo("PDF_NO_TEXT");
         assertThat(INFERENCE_CALLS).hasValue(0);
         assertThat(rabbit.receive(Messaging.SCREENING_REQUESTED_DLQ, 1_000)).isNull();
     }
@@ -187,6 +197,8 @@ class WorkerScreeningIntegrationTest {
 
         assertThat(awaitFinalStatus(requestId)).isEqualTo("FAILED");
         var dead = rabbit.receive(Messaging.SCREENING_REQUESTED_DLQ, 10_000);
+        assertThat(jdbc.queryForObject("select failure_code from screening_requests where id = ?", String.class,
+                requestId)).isEqualTo("INFERENCE_UNAVAILABLE");
         assertThat(dead).isNotNull();
         assertThat(dead.getMessageProperties().getMessageId()).isEqualTo(messageId);
         assertThat(INFERENCE_CALLS).hasValue(3);

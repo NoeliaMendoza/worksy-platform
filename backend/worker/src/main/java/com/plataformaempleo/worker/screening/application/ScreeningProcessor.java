@@ -24,7 +24,7 @@ public class ScreeningProcessor {
 
     /** Bloqueo de 60 s (sección 5 del diseño, paso 4). */
     public static final Duration LOCK_TTL = Duration.ofSeconds(60);
-    /** VALOR SUPUESTO: límite de texto enviado al modelo; el diseño prevé dividir por secciones más adelante. */
+    /** Límite de texto extraído: se rechaza el exceso para no evaluar un CV incompleto. */
     public static final int MAX_TEXT_CHARS = 100_000;
 
     public enum Result { DONE, DUPLICATE, BUSY, FAILED }
@@ -75,7 +75,7 @@ public class ScreeningProcessor {
                         outcome.needsReview() ? "NEEDS_REVIEW" : "COMPLETED", outcome.modelVersion());
                 return Result.DONE;
             } catch (ScreeningFailure failure) {
-                store.fail(requestId, messageId);
+                store.fail(requestId, messageId, failure.code());
                 log.warn("Preselección {} fallida ({}): {}", requestId,
                         failure.retryable() ? "pasajero" : "definitivo", failure.getMessage());
                 if (failure.retryable()) {
@@ -91,16 +91,16 @@ public class ScreeningProcessor {
     private ScreeningOutcome analyze(ScreeningContext context) {
         String text = extractor.extract(files.read(context.cvStorageKey())).strip();
         if (text.isEmpty()) {
-            throw ScreeningFailure.permanent("El PDF no tiene texto extraíble (¿escaneado?)");
+            throw ScreeningFailure.permanent("PDF_NO_TEXT", "El PDF no tiene texto extraíble (¿escaneado?)");
         }
         if (text.length() > MAX_TEXT_CHARS) {
-            text = text.substring(0, MAX_TEXT_CHARS);
+            throw ScreeningFailure.permanent("CV_TEXT_TOO_LONG", "El CV supera el límite de texto para el análisis; revisa el documento manualmente");
         }
         Decision decision = decisions.decide(context.provider(), text, context.jobDescription(), context.criteria());
         try {
-            return ScreeningOutcome.of(context.criteria(), decision, reviewThreshold);
+            return ScreeningOutcome.of(context.criteria(), decision, reviewThreshold).withEvidence(text, context.criteria());
         } catch (IllegalArgumentException e) {
-            throw ScreeningFailure.permanent("Respuesta del proveedor incompleta: " + e.getMessage());
+            throw ScreeningFailure.permanent("INFERENCE_INVALID_RESPONSE", "Respuesta del proveedor incompleta");
         }
     }
 }

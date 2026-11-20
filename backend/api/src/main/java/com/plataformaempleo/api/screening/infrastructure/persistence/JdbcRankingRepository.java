@@ -1,5 +1,9 @@
 package com.plataformaempleo.api.screening.infrastructure.persistence;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import com.plataformaempleo.api.screening.domain.model.RankingResult;
 import com.plataformaempleo.api.screening.domain.model.ScreeningRequest;
 import com.plataformaempleo.api.screening.domain.port.out.RankingRepository;
@@ -16,14 +20,27 @@ import org.springframework.stereotype.Repository;
 @Repository
 class JdbcRankingRepository implements RankingRepository {
     private final JdbcTemplate jdbc;
+    private final ObjectMapper json;
 
-    JdbcRankingRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    JdbcRankingRepository(JdbcTemplate jdbc, ObjectMapper json) { this.jdbc = jdbc; this.json = json; }
+
+    private RankingResult.Evidence evidence(String method, String fingerprint, String raw) {
+        if (method == null || fingerprint == null) return null;
+        try {
+            List<RankingResult.Snippet> snippets = json.readValue(raw, new TypeReference<List<RankingResult.Snippet>>() { });
+            return new RankingResult.Evidence(method, fingerprint, snippets);
+        } catch (JsonProcessingException e) {
+            // No adjuntar la excepción de Jackson: podría incluir texto privado del CV.
+            throw new IllegalStateException("No se pudieron leer los fragmentos del análisis");
+        }
+    }
 
     @Override
     public List<RankingResult> findSharedByVacancy(UUID vacancyId, String provider) {
         Map<UUID, List<RankingResult.Answer>> answers = new HashMap<>();
         jdbc.query("""
-                select r.id, s.question_key, s.choice, s.score, s.probability
+                select r.id, s.question_key, s.choice, s.score, s.probability, s.evidence::text as evidence,
+                       r.evidence_method, r.source_text_sha256
                 from screening_answers s join screening_requests r on r.id = s.request_id
                 join applications a on a.id = r.application_id
                 join candidate_profiles p on p.user_id = a.candidate_id
@@ -32,7 +49,8 @@ class JdbcRankingRepository implements RankingRepository {
                 """, (org.springframework.jdbc.core.RowCallbackHandler) rs ->
                 answers.computeIfAbsent(rs.getObject("id", UUID.class), key -> new ArrayList<>())
                         .add(new RankingResult.Answer(rs.getString("question_key"), rs.getString("choice"),
-                                rs.getBigDecimal("score"), rs.getBigDecimal("probability"))), vacancyId, provider);
+                                rs.getBigDecimal("score"), rs.getBigDecimal("probability"),
+                                evidence(rs.getString("evidence_method"), rs.getString("source_text_sha256"), rs.getString("evidence")))), vacancyId, provider);
         return jdbc.query("""
                 select a.id, a.applied_at, p.full_name, p.headline, p.location, u.email,
                        r.id as request_id, r.status, r.model_version, r.overall_score, r.confidence, d.decision

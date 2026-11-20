@@ -23,7 +23,8 @@ public record ScreeningRequest(
         BigDecimal confidence,
         UUID requestedBy,
         Instant requestedAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        String failureCode) {
 
     public enum Status { PENDING, PROCESSING, COMPLETED, NEEDS_REVIEW, FAILED }
 
@@ -42,6 +43,6 @@ public record ScreeningRequest(
     public static ScreeningRequest pending(UUID vacancyId, UUID applicationId, UUID cvId, String provider,
                                            UUID requestedBy, Instant now) {
         return new ScreeningRequest(UUID.randomUUID(), vacancyId, applicationId, cvId, provider, null, Status.PENDING,
-                0, null, null, requestedBy, now, now);
+                0, null, null, requestedBy, now, now, null);
     }
 }
