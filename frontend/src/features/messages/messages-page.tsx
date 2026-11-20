@@ -1,6 +1,7 @@
 import { ArrowLeft, Info, LoaderCircle, MessageSquare, MessagesSquare, SendHorizontal, WifiOff } from 'lucide-react'
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { AppLink } from '@/components/app-link'
+import { PageHeader } from '@/components/page-header'
 import { StateMessage } from '@/components/state-message'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
@@ -45,19 +46,15 @@ export function MessagesPage({ applicationId }: { applicationId?: string }) {
 
   const conversations = inbox.state.status === 'ready' ? inbox.state.data : []
   const open = conversations.find((c) => c.applicationId === applicationId)
+  const emptyInbox = inbox.state.status === 'ready' && conversations.length === 0 && !applicationId
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 sm:px-8 sm:py-10">
-      <header className={cn(applicationId && 'hidden lg:block')}>
-        <h1 className="text-4xl leading-[1.1] font-light tracking-tight text-navy-900 sm:text-5xl">
-          Tus <span className="font-semibold">mensajes</span>
-        </h1>
-        <p className="mt-3 max-w-xl text-base text-ink-700">
-          {candidate
+    <div className="app-page">
+      <div className={cn(applicationId && 'hidden lg:block')}>
+        <PageHeader title="Tus mensajes" description={candidate
             ? 'Conversaciones con las empresas sobre tus postulaciones. Puedes responder cuando una empresa te escriba.'
-            : 'Conversaciones con las personas que se postularon a tus vacantes.'}
-        </p>
-      </header>
+            : 'Conversaciones con las personas que se postularon a tus vacantes.'} />
+      </div>
 
       {realtime?.status === 'offline' && (
         <p role="status" className="flex items-center gap-2 text-sm text-ink-500">
@@ -66,8 +63,8 @@ export function MessagesPage({ applicationId }: { applicationId?: string }) {
         </p>
       )}
 
-      <div className="lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start lg:gap-6">
-        <section aria-label="Conversaciones" className={cn(applicationId && 'hidden lg:block')}>
+      <div className="lg:grid lg:grid-cols-[minmax(16rem,0.8fr)_minmax(0,2fr)] lg:items-start lg:gap-4">
+        <section aria-label="Conversaciones" className={cn(applicationId && 'hidden lg:block', emptyInbox && 'lg:col-span-2')}>
           {inbox.state.status === 'loading' && <LoadingRows rows={3} />}
           {inbox.state.status === 'error' && (
             <LoadError title="No se pudieron cargar tus mensajes" message={inbox.state.message} onRetry={inbox.retry} />
@@ -86,7 +83,7 @@ export function MessagesPage({ applicationId }: { applicationId?: string }) {
                 className="py-10"
               />
             ) : (
-              <ul className="divide-y divide-ink-100 overflow-hidden rounded-card bg-white shadow-soft">
+              <ul className="divide-y divide-ink-100 overflow-hidden rounded-card border border-ink-100 bg-white shadow-soft">
                 {conversations.map((c) => (
                   <li key={c.applicationId}>
                     <InboxRow conversation={c} candidate={candidate} current={c.applicationId === applicationId} />
@@ -96,7 +93,7 @@ export function MessagesPage({ applicationId }: { applicationId?: string }) {
             ))}
         </section>
 
-        <section
+        {!emptyInbox && <section
           aria-label="Conversación"
           className={cn(!applicationId && 'hidden lg:flex', 'min-w-0 flex-col')}
         >
@@ -114,10 +111,10 @@ export function MessagesPage({ applicationId }: { applicationId?: string }) {
               icon={MessageSquare}
               title="Elige una conversación"
               description="Los mensajes aparecerán aquí."
-              className="w-full py-16"
+              className="w-full py-8"
             />
           )}
-        </section>
+        </section>}
       </div>
     </div>
   )
@@ -130,7 +127,7 @@ function InboxRow({ conversation: c, candidate, current }: { conversation: Conve
       href={`/mensajes/${c.applicationId}`}
       aria-current={current ? 'page' : undefined}
       className={cn(
-        'flex flex-col gap-1 rounded-none px-5 py-4 font-normal text-ink-900 no-underline hover:bg-azure-50 hover:text-ink-900 hover:no-underline',
+        'flex flex-col gap-1 rounded-none px-4 py-3 font-normal text-ink-900 no-underline hover:bg-azure-50 hover:text-ink-900 hover:no-underline',
         current && 'bg-azure-100 hover:bg-azure-100',
       )}
     >
@@ -261,7 +258,7 @@ function Thread({
 
   const title = counterpart(conversation, candidate)
   return (
-    <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-card bg-white shadow-soft lg:h-[calc(100dvh-16rem)]">
+    <div className="flex min-h-[28rem] flex-col overflow-hidden rounded-card border border-ink-100 bg-white shadow-soft lg:h-[calc(100dvh-12rem)]">
       <header className="flex items-center gap-3 border-b border-ink-100 px-4 py-3 sm:px-5">
         <AppLink
           href="/mensajes"

@@ -3,6 +3,8 @@ import type { RealtimeNotice, RealtimeStatus } from './realtime-client'
 
 /** Avisos en vivo y avisos locales (p. ej., "esta conversación ya se leyó") para toda la app. */
 export type AppNotice = RealtimeNotice | { type: 'conversation.read'; applicationId: string }
+  | { type: 'application.progress.read'; applicationId: string }
+  | { type: 'interview.read'; interviewId: string }
 
 export type NoticeListener = (notice: AppNotice) => void
 

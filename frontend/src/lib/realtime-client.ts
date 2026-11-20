@@ -3,6 +3,8 @@ import { Client } from '@stomp/stompjs'
 /** Aviso del servicio de tiempo real. Solo trae ids: el contenido se pide a la API. */
 export type RealtimeNotice =
   | { type: 'message.sent'; applicationId: string; messageId: string }
+  | { type: 'application.stage.changed'; applicationId: string; stageChangeId: number }
+  | { type: 'interview.changed'; applicationId: string; interviewId: string }
   /** La conexión volvió tras cortarse: pudo perderse algún aviso, conviene recargar. */
   | { type: 'reconnected' }
 

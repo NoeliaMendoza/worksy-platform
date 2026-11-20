@@ -1,4 +1,5 @@
 import { AppShell } from '@/components/app-shell'
+import { ScreenBoundary } from '@/components/screen-boundary'
 import { LogoMark } from '@/components/logo'
 import type { AuthUser } from '@/features/auth/api'
 import { useAuth } from '@/features/auth/auth-context'
@@ -19,16 +20,23 @@ import { TeamPage } from '@/features/company/team-page'
 import { MessagesPage } from '@/features/messages/messages-page'
 import { useUnreadMessages } from '@/features/messages/use-unread-messages'
 import { CompanyVacanciesPage } from '@/features/vacancy/company-vacancies-page'
-import { CompanyVacancyPage, NewVacancyPage, VacancyRankingPage } from '@/features/vacancy/company-vacancy-pages'
 import { PublicLayout, PublicVacanciesPage, PublicVacancyPage } from '@/features/vacancy/public-vacancy-pages'
-import type { ReactNode } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { RankingView } from '@/features/ranking/ranking-view'
 import { useVacancyRanking } from '@/features/ranking/use-vacancy-ranking'
 import { RealtimeProvider } from '@/lib/realtime-provider'
+import { ApplicationUpdatesContext, useApplicationUpdates } from '@/features/application/application-updates-context'
+import { WorkspaceNotices } from '@/components/workspace-notices'
+import { InterviewsPage } from '@/features/interviews/interviews-page'
+import { InterviewInboxContext, useInterviewInbox } from '@/features/interviews/interview-inbox-context'
 import { useLocation } from '@/lib/router'
 import type { RankingPreview } from '@/mocks/vacancy-ranking'
 
 const previews: RankingPreview[] = ['listo', 'cargando', 'vacio', 'error']
+const CandidateDashboard = lazy(() => import('@/features/home/candidate-dashboard').then((module) => ({ default: module.CandidateDashboard })))
+const CompanyVacancyPage = lazy(() => import('@/features/vacancy/company-vacancy-pages').then((module) => ({ default: module.CompanyVacancyPage })))
+const NewVacancyPage = lazy(() => import('@/features/vacancy/company-vacancy-pages').then((module) => ({ default: module.NewVacancyPage })))
+const VacancyRankingPage = lazy(() => import('@/features/ranking/real-ranking-page').then((module) => ({ default: module.RealRankingPage })))
 
 /** Lee ?estado= para revisar los estados de la pantalla sin backend. */
 function previewFromUrl(): RankingPreview {
@@ -81,7 +89,11 @@ function Home({ user, token, pathname }: { user: AuthUser; token: string; pathna
 function Workspace({ user, token, pathname }: { user: AuthUser; token: string; pathname: string }) {
   const { logout } = useAuth()
   const unread = useUnreadMessages(token, user.role !== 'PLATFORM_ADMIN')
-  const nav = navigationByRole[user.role].map((item) => (item.id === 'mensajes' ? { ...item, badge: unread } : item))
+  const updates = useApplicationUpdates(token, user.role === 'CANDIDATE')
+  const interviews = useInterviewInbox(token, user.role !== 'PLATFORM_ADMIN')
+  const nav = navigationByRole[user.role].map((item) => item.id === 'mensajes' ? { ...item, badge: unread }
+    : item.id === 'postulaciones' ? { ...item, badge: updates.unread }
+    : item.id === 'entrevistas' ? { ...item, badge: interviews.unread } : item)
   const section = pathname.replace(/^\/+|\/+$/g, '')
   const shell = {
     nav,
@@ -94,24 +106,36 @@ function Workspace({ user, token, pathname }: { user: AuthUser; token: string; p
 
   if (pending) {
     return (
-      <AppShell {...shell} current={pending.id}>
-        <ComingSoon section={pending.label} />
-      </AppShell>
+      <ApplicationUpdatesContext.Provider value={user.role === 'CANDIDATE' ? updates : null}>
+        <InterviewInboxContext.Provider value={user.role !== 'PLATFORM_ADMIN' ? interviews : null}>
+          <AppShell {...shell} current={pending.id}>
+            <WorkspaceNotices />
+            <ComingSoon section={pending.label} />
+          </AppShell>
+        </InterviewInboxContext.Provider>
+      </ApplicationUpdatesContext.Provider>
     )
   }
   const resolved = page ?? pageFor(user.role, '')!
   return (
-    <AppShell {...shell} current={resolved.current}>
-      {resolved.element}
-    </AppShell>
+    <ApplicationUpdatesContext.Provider value={user.role === 'CANDIDATE' ? updates : null}>
+      <InterviewInboxContext.Provider value={user.role !== 'PLATFORM_ADMIN' ? interviews : null}>
+        <AppShell {...shell} current={resolved.current}>
+          <WorkspaceNotices />
+          <ScreenBoundary><Suspense fallback={<div className="app-page text-sm text-ink-500" role="status">Cargando página…</div>}>{resolved.element}</Suspense></ScreenBoundary>
+        </AppShell>
+      </InterviewInboxContext.Provider>
+    </ApplicationUpdatesContext.Provider>
   )
 }
 
 /** Pantalla de cada ruta por rol. null = la ruta existe en el menú pero aún no tiene pantalla. */
 function pageFor(role: AuthUser['role'], section: string): { current: string; element: ReactNode } | null {
   const [first = '', id, sub] = section.split('/')
+  if (role !== 'PLATFORM_ADMIN' && first === 'entrevistas') return { current: 'entrevistas', element: <InterviewsPage /> }
   if (role === 'CANDIDATE') {
-    if (first === '' || first === 'postulaciones') return { current: 'postulaciones', element: <CandidateHome /> }
+    if (first === '' || first === 'inicio') return { current: 'inicio', element: <ScreenBoundary><Suspense fallback={<div className="app-page text-sm text-ink-500" role="status">Cargando inicio…</div>}><CandidateDashboard /></Suspense></ScreenBoundary> }
+    if (first === 'postulaciones') return { current: 'postulaciones', element: <CandidateHome /> }
     if (first === 'mi-cv') return { current: 'mi-cv', element: <CvPage /> }
     if (first === 'mensajes') return { current: 'mensajes', element: <MessagesPage applicationId={id} /> }
     if (first === 'vacantes')

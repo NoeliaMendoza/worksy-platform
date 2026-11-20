@@ -23,6 +23,8 @@ export function useUnreadMessages(token: string, enabled: boolean): number {
   }, [token, enabled, version])
 
   const reload = useCallback(() => setVersion((v) => v + 1), [])
-  useRealtimeNotices(reload)
+  useRealtimeNotices((notice) => {
+    if (notice.type === 'message.sent' || notice.type === 'conversation.read' || notice.type === 'reconnected') reload()
+  })
   return enabled ? unread : 0
 }

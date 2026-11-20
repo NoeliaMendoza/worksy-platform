@@ -141,6 +141,20 @@ describe('ApplyPanel', () => {
 })
 
 describe('Inicio del candidato', () => {
+  it('muestra el resumen sin pedir historiales por fila y permite abrir los mensajes', async () => {
+    routes({ 'GET /api/v1/candidates/me/applications': () => json(200, [{ ...mine(), stage: 'INTERVIEW', milestones: [
+      { stage: 'RECEIVED', changedAt: '2026-11-11T16:00:00Z' },
+      { stage: 'REVIEW', changedAt: '2026-11-12T16:00:00Z' },
+      { stage: 'INTERVIEW', changedAt: '2026-11-13T16:00:00Z' },
+    ] }]) })
+    render(as('CANDIDATE', <CandidateHome />))
+    expect(await screen.findByRole('list', { name: 'Avance de Desarrollador/a backend Java' })).toBeInTheDocument()
+    expect(screen.getByText(/Esta etapa no confirma una cita/)).toBeInTheDocument()
+    expect(calls('GET /api/v1/candidates/me/applications/a-1/progress')).toHaveLength(0)
+    await userEvent.click(screen.getByRole('button', { name: 'Mensajes de Desarrollador/a backend Java' }))
+    expect(window.location.pathname).toBe('/mensajes/a-1')
+  })
+
   it('lista las postulaciones; una vacante cerrada queda sin enlace', async () => {
     routes({
       'GET /api/v1/candidates/me/applications': () =>
@@ -149,7 +163,7 @@ describe('Inicio del candidato', () => {
     render(as('CANDIDATE', <CandidateHome />))
 
     const list = await screen.findByRole('list', { name: 'Tus postulaciones' })
-    const [open, closed] = within(list).getAllByRole('listitem')
+    const [open, closed] = within(list).getAllByRole('listitem').filter((item) => item.parentElement === list)
     expect(within(open!).getByRole('link')).toHaveAttribute('href', '/vacantes/v-1')
     expect(open).toHaveTextContent('Recibida')
     expect(within(closed!).queryByRole('link')).not.toBeInTheDocument()
@@ -157,12 +171,71 @@ describe('Inicio del candidato', () => {
   })
 
   it('sin postulaciones invita a ver vacantes y subir el CV', async () => {
-    routes({ 'GET /api/v1/candidates/me/applications': () => json(200, []) })
+    routes({ 'GET /api/v1/candidates/me/applications': () => json(200, []),
+      'GET /api/v1/candidates/me/cv': () => json(200, []),
+      'GET /api/v1/candidates/me/consents': () => json(200, consents(false)),
+    })
     render(as('CANDIDATE', <CandidateHome />))
 
-    expect(await screen.findByText('Todavía no tienes postulaciones')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Ver vacantes' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Subir mi CV' })).toBeInTheDocument()
+    expect(await screen.findByText('Aún no te has postulado')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Explorar vacantes' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Subir mi CV' })).toBeInTheDocument()
+  })
+
+  it('con CV y permiso listos no pide volver a subirlo', async () => {
+    routes({ 'GET /api/v1/candidates/me/applications': () => json(200, []),
+      'GET /api/v1/candidates/me/cv': () => json(200, [cv('cv-1')]),
+      'GET /api/v1/candidates/me/consents': () => json(200, consents(true)),
+    })
+    render(as('CANDIDATE', <CandidateHome />))
+    expect(await screen.findByText(/Tu CV y el permiso para compartirlo están listos/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Subir mi CV' })).not.toBeInTheDocument()
+  })
+
+  it('con CV pero sin consentimiento dirige a los permisos', async () => {
+    routes({ 'GET /api/v1/candidates/me/applications': () => json(200, []),
+      'GET /api/v1/candidates/me/cv': () => json(200, [cv('cv-1')]),
+      'GET /api/v1/candidates/me/consents': () => json(200, consents(false)),
+    })
+    render(as('CANDIDATE', <CandidateHome />))
+    expect(await screen.findByRole('button', { name: 'Revisar permisos del CV' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Subir mi CV' })).not.toBeInTheDocument()
+  })
+
+  it('si falla la comprobación del CV conserva las vacantes sin inventar que falta un archivo', async () => {
+    routes({ 'GET /api/v1/candidates/me/applications': () => json(200, []),
+      'GET /api/v1/candidates/me/cv': () => json(503, {}),
+      'GET /api/v1/candidates/me/consents': () => json(200, consents(true)),
+    })
+    render(as('CANDIDATE', <CandidateHome />))
+    expect(await screen.findByRole('button', { name: 'Reintentar comprobación' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Explorar vacantes' })).toBeEnabled()
+    expect(screen.queryByRole('button', { name: 'Subir mi CV' })).not.toBeInTheDocument()
+  })
+
+  it('filtra por etapa y mantiene las vacantes cerradas en curso hasta una decisión explícita', async () => {
+    routes({ 'GET /api/v1/candidates/me/applications': () => json(200, [
+      { ...mine(), stage: 'REVIEW', vacancyStatus: 'CLOSED' },
+      { ...mine('v-2'), id: 'a-2', vacancyTitle: 'Analista finalizado', stage: 'REJECTED' },
+    ]) })
+    render(as('CANDIDATE', <CandidateHome />))
+    const user = userEvent.setup()
+    await user.click(await screen.findByRole('button', { name: 'En curso 1' }))
+    expect(screen.getByText('Desarrollador/a backend Java')).toBeInTheDocument()
+    expect(screen.queryByText('Analista finalizado')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Finalizadas 1' }))
+    expect(screen.getByText('Analista finalizado')).toBeInTheDocument()
+    expect(screen.queryByText('Desarrollador/a backend Java')).not.toBeInTheDocument()
+  })
+
+  it('distingue un filtro vacío de no tener postulaciones', async () => {
+    routes({ 'GET /api/v1/candidates/me/applications': () => json(200, [mine()]) })
+    render(as('CANDIDATE', <CandidateHome />))
+    await userEvent.click(await screen.findByRole('button', { name: 'Finalizadas 0' }))
+    expect(screen.getByText('No tienes procesos finalizados')).toBeInTheDocument()
+    expect(screen.queryByText('Aún no te has postulado')).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Ver todas' }))
+    expect(screen.getByText('Desarrollador/a backend Java')).toBeInTheDocument()
   })
 })
 
@@ -276,12 +349,18 @@ describe('Postulaciones recibidas (empresa)', () => {
     expect(keys[1]).toBe(keys[0])
   })
 
-  it('muestra el estado del análisis en palabras, sin decidir por la persona', async () => {
+  it.each([
+    ['CV_TEXT_TOO_LONG', /El CV supera el límite de texto/],
+    ['INFERENCE_UNAVAILABLE', /El servicio de análisis no está disponible temporalmente/],
+    [null, /no hay un motivo específico disponible/],
+    ['detalle-interno-no-publicable', /no hay un motivo específico disponible/],
+  ])('muestra el motivo seguro %s sin decidir por la persona', async (failureCode, message) => {
     const s = (applicationId: string, status: string) => ({
       id: 's-' + applicationId,
       applicationId,
       provider: 'baseline',
       status,
+      failureCode,
       modelVersion: null,
       overallScore: null,
       confidence: null,
@@ -300,6 +379,8 @@ describe('Postulaciones recibidas (empresa)', () => {
 
     expect(await screen.findByText('Análisis con dudas')).toBeInTheDocument()
     expect(screen.getByText('No se pudo analizar')).toBeInTheDocument()
+    expect(screen.getByText(message)).toBeInTheDocument()
+    expect(screen.queryByText('detalle-interno-no-publicable')).not.toBeInTheDocument()
     expect(screen.queryByText(/preseleccionad/i)).not.toBeInTheDocument()
   })
 })

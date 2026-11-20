@@ -1,8 +1,22 @@
 import { apiRequest } from '@/lib/http'
 import type { VacancyStatus } from '@/features/vacancy/api'
 
+export type ApplicationStage = 'RECEIVED' | 'REVIEW' | 'INTERVIEW' | 'OFFER' | 'HIRED' | 'REJECTED'
+export interface ApplicationProgress {
+  stage: ApplicationStage
+  history: { id: number; fromStage: ApplicationStage | null; stage: ApplicationStage; message: string | null; changedAt: string }[]
+}
+
+export interface ApplicationUpdatesInbox {
+  unread: number
+  updates: { applicationId: string; vacancyTitle: string; companyName: string; stage: ApplicationStage; changedAt: string; unread: number }[]
+}
+
 /** Postulación vista por la persona que se postuló. */
 export interface MyApplication {
+  stage?: ApplicationStage
+  /** Resumen sin mensajes; opcional para permitir actualizar primero el frontend. */
+  milestones?: { stage: ApplicationStage; changedAt: string }[]
   id: string
   vacancyId: string
   vacancyTitle: string
@@ -14,6 +28,7 @@ export interface MyApplication {
 
 /** Postulación vista por la empresa. Sin permiso de la persona, no trae su correo ni su CV. */
 export interface ReceivedApplication {
+  stage?: ApplicationStage | null
   id: string
   appliedAt: string
   shared: boolean
@@ -28,6 +43,7 @@ export interface ScreeningRequest {
   applicationId: string
   provider: string
   status: ScreeningStatus
+  failureCode?: string | null
   modelVersion: string | null
   overallScore: number | null
   confidence: number | null
@@ -64,6 +80,20 @@ export const screeningApi = {
 }
 
 export const applicationsApi = {
+  updates: (token: string) => apiRequest<ApplicationUpdatesInbox>('/candidates/me/application-updates', { token }),
+  markProgressRead: (token: string, applicationId: string, lastSeenEventId: number) =>
+    apiRequest<void>(`/candidates/me/applications/${applicationId}/progress/read`, {
+      method: 'POST', token, body: { lastSeenEventId },
+    }),
+  progress: (token: string, applicationId: string, vacancyId?: string) =>
+    apiRequest<ApplicationProgress>(vacancyId
+      ? `/companies/me/vacancies/${vacancyId}/applications/${applicationId}/progress`
+      : `/candidates/me/applications/${applicationId}/progress`, { token }),
+  moveStage: (token: string, vacancyId: string, applicationId: string, expectedStage: ApplicationStage,
+    stage: ApplicationStage, message: string) =>
+    apiRequest<ApplicationProgress>(`/companies/me/vacancies/${vacancyId}/applications/${applicationId}/progress`, {
+      method: 'PATCH', token, body: { expectedStage, stage, message: message.trim() || null },
+    }),
   apply: (token: string, vacancyId: string, cvId: string) =>
     apiRequest<{ id: string }>(`/vacancies/${vacancyId}/applications`, { method: 'POST', body: { cvId }, token }),
   mine: (token: string) => apiRequest<MyApplication[]>('/candidates/me/applications', { token }),

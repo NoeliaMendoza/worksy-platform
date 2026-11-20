@@ -25,6 +25,7 @@ const recruiting: NavItem[] = [
 
 /** Quien busca empleo: sus postulaciones y su CV. Nunca ve rankings ni datos de otras personas. */
 const candidate: NavItem[] = [
+  { id: 'inicio', label: 'Inicio', icon: LayoutGrid },
   { id: 'postulaciones', label: 'Mis postulaciones', icon: FileText },
   { id: 'mi-cv', label: 'Mi CV', icon: FileUser },
   { id: 'vacantes', label: 'Vacantes', icon: BriefcaseBusiness },
