@@ -26,8 +26,8 @@ export function Notice({ tone, children, autoFocus = false, id, className }: Not
       tabIndex={-1}
       role={tone === 'error' ? 'alert' : 'status'}
       className={cn(
-        'flex gap-3 rounded-2xl p-4 text-sm leading-relaxed focus:outline-none',
-        tone === 'error' ? 'bg-low-100 text-low-700' : 'bg-high-100 text-high-700',
+        'flex gap-3 rounded-lg border px-4 py-3 text-sm leading-relaxed focus:outline-none',
+        tone === 'error' ? 'border-low-700/20 bg-low-100 text-low-700' : 'border-high-700/20 bg-high-100 text-high-700',
         className,
       )}
     >
