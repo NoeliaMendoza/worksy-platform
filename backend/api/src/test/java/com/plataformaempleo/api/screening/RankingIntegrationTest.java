@@ -43,6 +43,8 @@ class RankingIntegrationTest {
                 .getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         finish(ana, "0.9000", "COMPLETED");
         finish(luis, "0.5000", "NEEDS_REVIEW");
+        String quote = "No tengo experiencia con Spring Boot: solo realicé un curso introductorio.";
+        String sourceHash = installEvidence(ana, quote);
         String path = base + "/ranking";
         JsonNode ranking = json.readTree(send(HttpMethod.GET, path, null, admin, null).getBody());
         assertThat(ranking.get("candidates")).hasSize(2);
@@ -52,6 +54,12 @@ class RankingIntegrationTest {
         assertThat(first.get("email").asText()).isEqualTo(ana.email());
         assertThat(first.get("overallScore").asDouble()).isEqualTo(0.9);
         assertThat(first.get("answers").get(0).get("answer").asText()).isEqualTo("Sí");
+        JsonNode evidence = first.get("answers").get(0).get("evidence");
+        assertThat(evidence.get("method").asText()).isEqualTo("label-terms-v1");
+        assertThat(evidence.get("sourceTextSha256").asText()).isEqualTo(sourceHash);
+        assertThat(evidence.get("snippets").get(0).get("text").asText()).isEqualTo(quote);
+        assertThat(evidence.get("snippets").get(0).get("endOffset").asInt()).isEqualTo(quote.length());
+        assertThat(ranking.get("candidates").get(1).get("answers").get(0).get("evidence").isNull()).isTrue();
         assertThat(first.get("decision").isNull()).isTrue();
         assertThat(ranking.get("candidates").get(1).get("status").asText()).isEqualTo("NEEDS_REVIEW");
         String decisionPath = path + "/" + first.get("applicationId").asText() + "/decision";
@@ -74,6 +82,7 @@ class RankingIntegrationTest {
         reloaded = json.readTree(send(HttpMethod.GET, path, null, admin, null).getBody());
         assertThat(reloaded.get("candidates")).hasSize(1);
         assertThat(reloaded.toString()).doesNotContain(ana.email());
+        assertThat(reloaded.toString()).doesNotContain(quote);
         assertThat(send(HttpMethod.PUT, decisionPath, Map.of("decision", "descartado"), admin, null)
                 .getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         // Las solicitudes fallidas no se convierten en candidatos con puntuación cero.
@@ -97,6 +106,17 @@ class RankingIntegrationTest {
                 + "model_version = 'baseline-prueba' where id = ?", status, score, request);
         jdbc.update("insert into screening_answers (id, request_id, question_key, choice, probability, score) "
                 + "values (?, ?, 'q1', 'Sí', 0.8500, 1.0000)", UUID.randomUUID(), request);
+    }
+
+    private String installEvidence(Candidate candidate, String text) throws Exception {
+        UUID request = jdbc.queryForObject("select id from screening_requests where cv_id = ?", UUID.class,
+                UUID.fromString(candidate.cvId()));
+        String hash = HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256")
+                .digest(text.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        jdbc.update("update screening_requests set evidence_method = 'label-terms-v1', source_text_sha256 = ? where id = ?", hash, request);
+        jdbc.update("update screening_answers set evidence = cast(? as jsonb) where request_id = ?",
+                json.writeValueAsString(List.of(Map.of("text", text, "startOffset", 0, "endOffset", text.length()))), request);
+        return hash;
     }
 
     // ---- utilidades ----

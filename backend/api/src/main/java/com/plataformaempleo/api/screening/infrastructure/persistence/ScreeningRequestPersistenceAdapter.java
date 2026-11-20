@@ -47,12 +47,12 @@ class ScreeningRequestPersistenceAdapter implements ScreeningRequestRepository {
     private static ScreeningRequestJpaEntity toEntity(ScreeningRequest r) {
         return new ScreeningRequestJpaEntity(r.id(), r.vacancyId(), r.applicationId(), r.cvId(), r.provider(),
                 r.modelVersion(), r.status().name(), r.attempts(), r.overallScore(), r.confidence(), r.requestedBy(),
-                r.requestedAt(), r.updatedAt());
+                r.requestedAt(), r.updatedAt(), r.failureCode());
     }
 
     private static ScreeningRequest toDomain(ScreeningRequestJpaEntity e) {
         return new ScreeningRequest(e.getId(), e.getVacancyId(), e.getApplicationId(), e.getCvId(), e.getProvider(),
                 e.getModelVersion(), ScreeningRequest.Status.valueOf(e.getStatus()), e.getAttempts(),
-                e.getOverallScore(), e.getConfidence(), e.getRequestedBy(), e.getRequestedAt(), e.getUpdatedAt());
+                e.getOverallScore(), e.getConfidence(), e.getRequestedBy(), e.getRequestedAt(), e.getUpdatedAt(), e.getFailureCode());
     }
 }

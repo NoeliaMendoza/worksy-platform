@@ -41,10 +41,13 @@ class ScreeningController {
     @Schema(name = "ScreeningRequest", description = "Solicitud de preselección de un CV")
     record ScreeningResponse(UUID id, UUID applicationId, String provider, ScreeningRequest.Status status,
                              String modelVersion, BigDecimal overallScore, BigDecimal confidence,
-                             Instant requestedAt, Instant updatedAt) {
+                             Instant requestedAt, Instant updatedAt,
+                             @Schema(description = "Código seguro del fallo; null si no existe un motivo registrado")
+                             String failureCode) {
         static ScreeningResponse from(ScreeningRequest r) {
             return new ScreeningResponse(r.id(), r.applicationId(), r.provider(), r.status(), r.modelVersion(),
-                    r.overallScore(), r.confidence(), r.requestedAt(), r.updatedAt());
+                    r.overallScore(), r.confidence(), r.requestedAt(), r.updatedAt(),
+                    r.status() == ScreeningRequest.Status.FAILED ? r.failureCode() : null);
         }
     }
 

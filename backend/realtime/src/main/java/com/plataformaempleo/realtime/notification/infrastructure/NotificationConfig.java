@@ -59,6 +59,8 @@ class NotificationConfig {
         Queue failed = QueueBuilder.durable(Messaging.REALTIME_NOTIFICATIONS_DLQ).quorum().build();
         return new Declarables(events, deadLetters, notifications, failed,
                 BindingBuilder.bind(notifications).to(events).with(EventTypes.MESSAGE_SENT),
+                BindingBuilder.bind(notifications).to(events).with(EventTypes.APPLICATION_STAGE_CHANGED),
+                BindingBuilder.bind(notifications).to(events).with(EventTypes.INTERVIEW_CHANGED),
                 BindingBuilder.bind(failed).to(deadLetters).with(Messaging.REALTIME_NOTIFICATIONS_DLQ));
     }
 }

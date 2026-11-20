@@ -73,11 +73,11 @@ public class HttpDecisionProvider implements DecisionProvider {
                         .toEntity(DecideResponse.class);
                 return toDecision(response);
             } catch (HttpClientErrorException e) {
-                throw new ScreeningFailure("El servicio de inferencia rechazó la petición (" + e.getStatusCode().value()
+                throw new ScreeningFailure("INFERENCE_REJECTED", "El servicio de inferencia rechazó la petición (" + e.getStatusCode().value()
                         + ")", false, e);
             } catch (HttpServerErrorException e) {
                 if (e.getStatusCode().value() == 501) {
-                    throw new ScreeningFailure("El proveedor de decisión no está disponible (501)", false, e);
+                    throw new ScreeningFailure("INFERENCE_NOT_CONFIGURED", "El proveedor de decisión no está disponible (501)", false, e);
                 }
                 last = e;
                 log.warn("Inferencia con error {} (intento {}/{})", e.getStatusCode().value(), attempt, MAX_ATTEMPTS);
@@ -92,8 +92,8 @@ public class HttpDecisionProvider implements DecisionProvider {
                 }
             }
         }
-        throw ScreeningFailure.transientFailure("El servicio de inferencia no respondió tras " + MAX_ATTEMPTS
-                + " intentos", last);
+        throw new ScreeningFailure("INFERENCE_UNAVAILABLE", "El servicio de inferencia no respondió tras " + MAX_ATTEMPTS
+                + " intentos", true, last);
     }
 
     /** Espera creciente con variación aleatoria ("full jitter") para no sincronizar reintentos de varias réplicas. */
@@ -127,7 +127,7 @@ public class HttpDecisionProvider implements DecisionProvider {
     private static Decision toDecision(ResponseEntity<DecideResponse> response) {
         DecideResponse body = response.getBody();
         if (body == null || body.answers() == null) {
-            throw ScreeningFailure.permanent("Respuesta vacía del servicio de inferencia");
+            throw ScreeningFailure.permanent("INFERENCE_INVALID_RESPONSE", "Respuesta vacía del servicio de inferencia");
         }
         Map<String, Decision.Answer> answers = new LinkedHashMap<>();
         body.answers().forEach((key, a) -> {

@@ -97,7 +97,42 @@ class ScreeningProcessorTest {
 
         assertThat(processor.process("m-1", requestId)).isEqualTo(ScreeningProcessor.Result.FAILED);
         assertThat(store.failed).containsExactly(requestId);
+        assertThat(store.failureCode).isEqualTo("PDF_NO_TEXT");
         assertThat(inferenceCalls).hasValue(0);
+        assertThat(lock.held).isEmpty();
+    }
+
+    @Test
+    void unCvQueSuperaElLimiteFallaSinEnviarTextoParcialAlModelo() {
+        store.context = context(ScreeningContext.Status.PENDING);
+        extractedText = "a".repeat(ScreeningProcessor.MAX_TEXT_CHARS + 1);
+
+        assertThat(processor.process("m-largo", requestId)).isEqualTo(ScreeningProcessor.Result.FAILED);
+        assertThat(store.failed).containsExactly(requestId);
+        assertThat(store.completed).isEmpty();
+        assertThat(store.failureCode).isEqualTo("CV_TEXT_TOO_LONG");
+        assertThat(store.processed).containsExactly("m-largo");
+        assertThat(inferenceCalls).hasValue(0);
+        assertThat(lock.held).isEmpty();
+        assertThat(processor.process("m-largo", requestId)).isEqualTo(ScreeningProcessor.Result.DUPLICATE);
+    }
+
+    @Test
+    void unCvEnElLimiteSeEnviaCompletoAlModelo() {
+        store.context = context(ScreeningContext.Status.PENDING);
+        extractedText = "a".repeat(ScreeningProcessor.MAX_TEXT_CHARS - 10) + "FIN DEL CV";
+        List<String> receivedTexts = new ArrayList<>();
+        ScreeningProcessor boundaryProcessor = new ScreeningProcessor(store, key -> new byte[] {1},
+                pdf -> extractedText,
+                (provider, text, description, criteria) -> {
+                    receivedTexts.add(text);
+                    return new Decision(Map.of("q1", new Decision.Answer("Sí", 0.9)), "baseline-bow-1", 5);
+                }, lock, 0.6);
+
+        assertThat(boundaryProcessor.process("m-limite", requestId)).isEqualTo(ScreeningProcessor.Result.DONE);
+        assertThat(receivedTexts).containsExactly(extractedText);
+        assertThat(store.failed).isEmpty();
+        assertThat(store.completed).hasSize(1);
         assertThat(lock.held).isEmpty();
     }
 
@@ -138,6 +173,7 @@ class ScreeningProcessorTest {
         final List<ScreeningOutcome> completed = new ArrayList<>();
         final List<UUID> failed = new ArrayList<>();
         int processing;
+        String failureCode;
 
         @Override
         public boolean alreadyProcessed(String messageId) {
@@ -161,7 +197,8 @@ class ScreeningProcessorTest {
         }
 
         @Override
-        public void fail(UUID requestId, String messageId) {
+        public void fail(UUID requestId, String messageId, String failureCode) {
+            this.failureCode = failureCode;
             processed.add(messageId);
             failed.add(requestId);
         }

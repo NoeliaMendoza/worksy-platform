@@ -26,4 +26,16 @@ public class NotificationService {
             publisher.publish(recipient, notification);
         }
     }
+
+    public void stageChanged(UUID applicationId, long stageChangeId, Collection<UUID> recipients) {
+        Notification notification = Notification.stageChanged(applicationId, stageChangeId);
+        for (UUID recipient : new LinkedHashSet<>(recipients)) {
+            publisher.publish(recipient, notification);
+        }
+    }
+
+    public void interviewChanged(UUID applicationId, UUID interviewId, Collection<UUID> recipients) {
+        Notification notification = Notification.interviewChanged(applicationId, interviewId);
+        for (UUID recipient : new LinkedHashSet<>(recipients)) publisher.publish(recipient, notification);
+    }
 }

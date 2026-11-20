@@ -35,7 +35,7 @@ export function DecisionControl({ value, onChange, candidateName, className, dis
             aria-pressed={pressed}
             onClick={() => onChange(pressed ? null : option)}
             className={cn(
-              'inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1 rounded-full px-1.5 text-xs whitespace-nowrap sm:h-9 sm:flex-none sm:gap-1.5 sm:px-3.5 font-semibold ring-1 transition-colors ring-inset',
+              'inline-flex h-10 flex-1 cursor-pointer items-center justify-center gap-1 rounded-md px-1.5 text-xs whitespace-nowrap sm:h-9 sm:flex-none sm:gap-1.5 sm:px-3.5 font-semibold ring-1 transition-colors ring-inset',
               pressed ? active : 'bg-white text-ink-700 ring-ink-100 hover:bg-azure-50 hover:text-navy-900 hover:ring-azure-300',
             )}
           >

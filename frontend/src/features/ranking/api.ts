@@ -1,6 +1,6 @@
 import type { ScreeningStatus } from '@/features/application/api'
 import { apiRequest } from '@/lib/http'
-import type { Decision } from './types'
+import type { Decision, TextEvidence } from './types'
 
 export interface RankingResult {
   applicationId: string
@@ -13,7 +13,7 @@ export interface RankingResult {
   modelVersion: string | null
   overallScore: number
   confidence: number
-  answers: { criterionId: string; answer: string | null; score: number | null; probability: number | null }[]
+  answers: { criterionId: string; answer: string | null; score: number | null; probability: number | null; evidence?: TextEvidence | null }[]
   decision: Decision | null
 }
 

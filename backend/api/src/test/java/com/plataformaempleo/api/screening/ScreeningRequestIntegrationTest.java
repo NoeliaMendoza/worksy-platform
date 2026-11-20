@@ -123,6 +123,7 @@ class ScreeningRequestIntegrationTest {
         JsonNode list = json.readTree(send(HttpMethod.GET, path, null, admin, null).getBody());
         assertThat(list).hasSize(1);
         assertThat(list.get(0).get("status").asText()).isEqualTo("PENDING");
+        assertFailureReasonAndRetry(admin, vacancyId, ana, requestId);
     }
 
     @Test
@@ -142,6 +143,30 @@ class ScreeningRequestIntegrationTest {
         var draftResponse = send(HttpMethod.POST, "/api/v1/companies/me/vacancies/" + draft + "/screenings", Map.of(),
                 admin, UUID.randomUUID().toString());
         assertThat(code(draftResponse)).isEqualTo("screening.vacancy.draft");
+    }
+
+    private void assertFailureReasonAndRetry(String admin, String vacancyId, Candidate ana, String requestId) throws Exception {
+        String path = "/api/v1/companies/me/vacancies/" + vacancyId + "/screenings";
+        jdbc.update("update screening_requests set status = 'FAILED', failure_code = 'PDF_NO_TEXT', "
+                + "evidence_method = 'label-terms-v1', source_text_sha256 = ? where id = ?",
+                "a".repeat(64), UUID.fromString(requestId));
+
+        JsonNode list = json.readTree(send(HttpMethod.GET, path, null, admin, null).getBody());
+        assertThat(list.get(0).get("failureCode").asText()).isEqualTo("PDF_NO_TEXT");
+        assertThat(send(HttpMethod.GET, path, null, companyAdmin(), null).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(send(HttpMethod.GET, path, null, ana.token(), null).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+
+        var retry = send(HttpMethod.POST, path + "/" + requestId + "/retry", null, admin, UUID.randomUUID().toString());
+        assertThat(retry.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
+        JsonNode request = json.readTree(retry.getBody()).get("request");
+        assertThat(request.get("status").asText()).isEqualTo("PENDING");
+        assertThat(request.path("failureCode").isNull() || request.path("failureCode").isMissingNode()).isTrue();
+        assertThat(jdbc.queryForObject("select failure_code from screening_requests where id = ?", String.class,
+                UUID.fromString(requestId))).isNull();
+        assertThat(jdbc.queryForObject("select evidence_method from screening_requests where id = ?", String.class,
+                UUID.fromString(requestId))).isNull();
+        assertThat(jdbc.queryForObject("select source_text_sha256 from screening_requests where id = ?", String.class,
+                UUID.fromString(requestId))).isNull();
     }
 
     // ---- utilidades ----

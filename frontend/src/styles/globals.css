@@ -5,10 +5,11 @@
  * Tokens de Worksy. Todo color, radio y sombra de la interfaz sale de aquí.
  * Paleta inspirada en interfaces clínicas: navy profundo para estructura y acción,
  * azules "hielo" para superficies y un acento periwinkle para datos.
- * Contrastes verificados para WCAG 2.2 AA (ver bitácora).
+ * El contraste y el foco se verifican también en cada estado de los componentes.
  */
 @theme {
   --font-sans: 'Plus Jakarta Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --color-surface-page: #f6f7f9;
 
   /* Navy: estructura (sidebar, footer) y acción principal */
   --color-navy-950: #071330;
@@ -41,12 +42,12 @@
   --color-low-700: #be123c;
   --color-low-100: #fde4ea;
 
-  --radius-card: 1.25rem;
-  --radius-panel: 1.75rem;
+  --radius-card: 0.75rem;
+  --radius-panel: 0.75rem;
 
   /* Sombras frías y difusas: dan profundidad sin el gris "plantilla" */
-  --shadow-soft: 0 1px 2px rgb(11 31 75 / 0.04), 0 8px 24px -12px rgb(11 31 75 / 0.12);
-  --shadow-lift: 0 2px 4px rgb(11 31 75 / 0.05), 0 20px 40px -20px rgb(11 31 75 / 0.25);
+  --shadow-soft: 0 1px 2px rgb(11 31 75 / 0.05);
+  --shadow-lift: 0 2px 6px rgb(11 31 75 / 0.08);
 
   /* Línea que recorre la hoja del CV mientras se sube (solo responde a una acción de la persona). */
   --animate-scan: scan 1.6s ease-in-out infinite;
@@ -83,7 +84,7 @@
   }
 
   body {
-    @apply bg-azure-50 font-sans text-ink-900;
+    @apply bg-surface-page font-sans text-ink-900;
     font-feature-settings: 'ss01', 'cv11';
   }
 
@@ -98,5 +99,12 @@
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
     }
+  }
+}
+
+@layer components {
+  /* Escala compartida del área de trabajo: 8/16/24 px, sin alturas artificiales. */
+  .app-page {
+    @apply flex w-full max-w-[1440px] flex-col gap-4 px-4 py-5 sm:px-6 lg:py-6;
   }
 }

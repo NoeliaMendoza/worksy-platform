@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '@/App'
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
 import type { CompanyVacancy } from './api'
+import type { TextEvidence } from '@/features/ranking/types'
 import { CompanyVacanciesPage } from './company-vacancies-page'
 import { CompanyVacancyPage, NewVacancyPage, VacancyRankingPage } from './company-vacancy-pages'
 
@@ -18,6 +19,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.restoreAllMocks()
   vi.unstubAllGlobals()
   window.history.replaceState(null, '', '/')
 })
@@ -66,6 +68,20 @@ const vacancy = (patch: Partial<CompanyVacancy> = {}): CompanyVacancy => ({
 })
 
 describe('CompanyVacanciesPage', () => {
+  it('combina puesto y estado y permite recuperar la lista al limpiar filtros', async () => {
+    routes({ 'GET /api/v1/companies/me/vacancies': () => json(200, [vacancy(), vacancy({ id: 'v-2', title: 'Analista de datos', status: 'PUBLISHED', publishedAt: '2026-11-10T11:00:00Z' })]) })
+    const user = userEvent.setup()
+    render(withRecruiter(<CompanyVacanciesPage />))
+    await screen.findByRole('list', { name: 'Vacantes de la empresa' })
+    await user.type(screen.getByLabelText('Puesto o ubicación'), 'analista')
+    expect(within(screen.getByRole('list', { name: 'Vacantes de la empresa' })).getAllByRole('link')).toHaveLength(1)
+    await user.selectOptions(screen.getByLabelText('Estado'), 'DRAFT')
+    expect(screen.getByText('No hay vacantes con esos filtros')).toBeInTheDocument()
+    expect(screen.queryByText('Todavía no tienes vacantes')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Limpiar filtros' }))
+    expect(within(screen.getByRole('list', { name: 'Vacantes de la empresa' })).getAllByRole('link')).toHaveLength(2)
+  })
+
   it('sin vacantes invita a crear la primera', async () => {
     routes({ 'GET /api/v1/companies/me/vacancies': () => json(200, []) })
     render(withRecruiter(<CompanyVacanciesPage />))
@@ -108,6 +124,10 @@ describe('Editor de vacante', () => {
     await user.type(within(first).getByLabelText('Opción 1 del criterio 1'), 'Más de 3')
     await user.type(within(first).getByLabelText('Opción 2 del criterio 1'), 'Menos de 3')
 
+    await user.selectOptions(screen.getByLabelText('Tipo de contrato *'), 'INDEFINITE')
+    await user.selectOptions(screen.getByLabelText('Jornada *'), 'FULL_TIME')
+    await user.type(screen.getByLabelText('Responsabilidades *'), 'Desarrollar servicios de pagos.')
+    await user.type(screen.getByLabelText('Requisitos indispensables *'), 'Experiencia con Java.')
     await user.click(screen.getByRole('button', { name: 'Guardar y publicar' }))
 
     await waitFor(() => expect(calls('POST /api/v1/companies/me/vacancies/v-1/publish')).toHaveLength(1))
@@ -116,6 +136,7 @@ describe('Editor de vacante', () => {
       location: 'Lima',
       modality: 'REMOTO',
       description: 'Equipo de pagos con Spring Boot y PostgreSQL.',
+      offer: { contractType:'INDEFINITE',workSchedule:'FULL_TIME',area:null,experienceLevel:null,responsibilities:'Desarrollar servicios de pagos.',requirements:'Experiencia con Java.',desirable:null,benefits:null,schedule:null,remoteConditions:null,salaryMin:null,salaryMax:null,currency:null,salaryPeriod:null },
       criteria: [
         { label: 'Años en Java', question: '¿Cuántos años de experiencia tiene con Java?', kind: 'CHOICE', options: ['Más de 3', 'Menos de 3'] },
       ],
@@ -209,13 +230,18 @@ describe('Ranking conectado', () => {
     answers: [{ criterionId: 'q1', answer: 'Sí', score: 1, probability: 0.55 }], decision: null,
   }
 
-  function rankingRoutes(saveFails = false) {
+  function rankingRoutes(saveFails = false, evidence?: TextEvidence, cvDenied = false) {
     let decision: string | null = null
+    let revoked = false
     routes({
       'GET /api/v1/companies/me/vacancies/v-1': () => json(200, vacancy({ status: 'PUBLISHED' })),
       'GET /api/v1/companies/me': () => json(200, { name: 'Andina Cargo' }),
       'GET /api/v1/companies/me/vacancies/v-1/ranking': () =>
-        json(200, { candidates: [{ ...candidate, decision }], received: 1, pending: 0, failed: 0, notRequested: 0 }),
+        json(200, { candidates: revoked ? [] : [{ ...candidate, answers: candidate.answers.map((a) => ({ ...a, evidence })), decision }], received: revoked ? 0 : 1, pending: 0, failed: 0, notRequested: 0 }),
+      'GET /api/v1/companies/me/vacancies/v-1/applications/a-1/cv': () => {
+        if (cvDenied) { revoked = true; return json(403, { detail: 'La persona retiró el permiso de compartir su CV.' }) }
+        return json(200, { url: 'http://localhost:9000/cv-sintetico.pdf?firma=demo', expiresAt: '2026-11-16T23:00:00Z' })
+      },
       'PUT /api/v1/companies/me/vacancies/v-1/ranking/a-1/decision': (init) => {
         if (saveFails) return json(503, { detail: 'No se pudo guardar la decisión.' })
         decision = JSON.parse(init?.body as string).decision
@@ -279,10 +305,38 @@ describe('Ranking conectado', () => {
     expect(screen.getByRole('button', { name: 'Descartar' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByText('Decisión guardada.')).not.toBeInTheDocument()
   })
+
+  it('muestra el fragmento de la API y abre el PDF original con permiso renovado', async () => {
+    const text = 'No tengo experiencia profesional con Spring Boot; solo asistí a un curso.'
+    rankingRoutes(false, { method: 'label-terms-v1', sourceTextSha256: 'b'.repeat(64), snippets: [{ text, startOffset: 0, endOffset: text.length }] })
+    const tab = { location: { href: '' }, opener: {}, closed: false, close: vi.fn() }
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    render(withRecruiter(<VacancyRankingPage id="v-1" />))
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver evidencia' }))
+    expect(screen.getByText(text)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Abrir el CV original/ }))
+    await waitFor(() => expect(tab.location.href).toContain('cv-sintetico.pdf'))
+    expect(tab.opener).toBeNull()
+    expect(screen.getByRole('meter', { name: `Compatibilidad de ${candidate.email}` })).toHaveAttribute('aria-valuenow', '75')
+  })
+
+  it('cierra la pestaña y retira el fragmento al perder el consentimiento', async () => {
+    const text = 'Texto sintético privado con Spring Boot.'
+    rankingRoutes(false, { method: 'label-terms-v1', sourceTextSha256: 'b'.repeat(64), snippets: [{ text, startOffset: 0, endOffset: text.length }] }, true)
+    const tab = { location: { href: '' }, opener: {}, closed: false, close: vi.fn() }
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    render(withRecruiter(<VacancyRankingPage id="v-1" />))
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver evidencia' }))
+    await userEvent.click(screen.getByRole('button', { name: /Abrir el CV original/ }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('La persona retiró el permiso')
+    expect(tab.close).toHaveBeenCalledOnce()
+    await waitFor(() => expect(screen.queryByText(text)).not.toBeInTheDocument())
+    expect(tab.location.href).toBe('')
+  })
 })
 
 describe('Vacantes públicas sin sesión', () => {
-  it('lista y detalle con las preguntas que se evaluarán', async () => {
+  it('muestra la oferta sin exponer las preguntas de revisión interna', async () => {
     const summary = { id: 'v-9', title: 'Analista de datos', companyName: 'Pacífico Retail', location: 'Remoto', modality: 'REMOTO', publishedAt: '2026-11-10T11:00:00Z' }
     routes({
       'POST /api/v1/auth/refresh': () => json(401, { code: 'auth.refresh.invalid' }),
@@ -296,8 +350,9 @@ describe('Vacantes públicas sin sesión', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Vacantes abiertas' })).toBeInTheDocument()
     await user.click(await screen.findByRole('link', { name: /Analista de datos/ }))
-    expect(await screen.findByText('¿Usa SQL a diario?')).toBeInTheDocument()
-    expect(screen.getByText('Qué se evaluará en tu CV')).toBeInTheDocument()
+    expect(await screen.findByText('Análisis de ventas.')).toBeInTheDocument()
+    expect(screen.queryByText('¿Usa SQL a diario?')).not.toBeInTheDocument()
+    expect(screen.queryByText('Qué se evaluará en tu CV')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
   })
 })

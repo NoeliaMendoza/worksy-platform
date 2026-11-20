@@ -13,7 +13,7 @@ type FilterBarProps<T extends string> = {
 /** Filtros en píldora con contador. Botones conmutables, desplazables en móvil. */
 export function FilterBar<T extends string>({ label, options, value, onChange, className }: FilterBarProps<T>) {
   return (
-    <div role="group" aria-label={label} className={cn('-mx-1 flex gap-1.5 overflow-x-auto px-1 py-1 [scrollbar-width:none]', className)}>
+    <div role="group" aria-label={label} className={cn('relative -mx-1 flex gap-1.5 overflow-x-auto px-1 py-1 [scrollbar-width:none]', className)}>
       {options.map((o) => {
         const active = o.value === value
         return (
@@ -23,7 +23,7 @@ export function FilterBar<T extends string>({ label, options, value, onChange, c
             aria-pressed={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              'inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors',
+              'inline-flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors',
               active ? 'bg-navy-900 text-white' : 'bg-white text-ink-700 shadow-soft hover:text-navy-900',
             )}
           >

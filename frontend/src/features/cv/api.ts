@@ -9,6 +9,7 @@ export interface CvDocument {
   sizeBytes: number
   status: 'UPLOADED'
   uploadedAt: string
+  originalName?: string | null
 }
 
 export interface Consents {
@@ -28,6 +29,7 @@ export const cvApi = {
     return apiRequest<CvDocument>(`${base}/cv`, { method: 'POST', body: form, token })
   },
   remove: (token: string, id: string) => apiRequest<void>(`${base}/cv/${id}`, { method: 'DELETE', token }),
+  link: (token: string, id: string) => apiRequest<{ url: string; expiresAt: string }>(`${base}/cv/${id}/link`, { token }),
   consents: (token: string) => apiRequest<Consents>(`${base}/consents`, { token }),
   updateConsents: (token: string, body: Pick<Consents, 'shareWithRecruiters' | 'githubLink'>) =>
     apiRequest<Consents>(`${base}/consents`, { method: 'PUT', body, token }),

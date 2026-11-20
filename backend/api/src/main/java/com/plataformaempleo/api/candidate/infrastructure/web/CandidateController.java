@@ -55,7 +55,7 @@ class CandidateController {
     @ApiResponse(responseCode = "413", description = "El archivo supera los 5 MB")
     @ApiResponse(responseCode = "503", description = "El almacenamiento no está disponible")
     ResponseEntity<CvResponse> upload(@AuthenticationPrincipal Jwt jwt, @RequestPart("file") MultipartFile file) {
-        var created = cvs.upload(CurrentActor.from(jwt), bytesOf(file));
+        var created = cvs.upload(CurrentActor.from(jwt), bytesOf(file), file.getOriginalFilename());
         return ResponseEntity.created(URI.create("/api/v1/candidates/me/cv/" + created.id()))
                 .body(CvResponse.from(created));
     }
@@ -65,6 +65,15 @@ class CandidateController {
             security = @SecurityRequirement(name = "bearer"))
     List<CvResponse> list(@AuthenticationPrincipal Jwt jwt) {
         return cvs.list(CurrentActor.from(jwt)).stream().map(CvResponse::from).toList();
+    }
+
+    @GetMapping("/cv/{id}/link")
+    @Operation(summary = "Abrir un CV propio", description = "Enlace temporal de lectura válido por 5 minutos. No exige compartirlo con empresas.",
+            security = @SecurityRequirement(name = "bearer"))
+    @ApiResponse(responseCode = "404", description = "No existe entre los CV del candidato")
+    ResponseEntity<CvService.ReadLink> readLink(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore())
+                .body(cvs.readLink(CurrentActor.from(jwt), id));
     }
 
     @DeleteMapping("/cv/{id}")

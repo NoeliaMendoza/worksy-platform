@@ -140,6 +140,28 @@ class RealtimeApplicationTest {
     }
 
     @Test
+    void avisaUnCambioDeEtapaSoloAlCandidatoDestinatario() throws Exception {
+        UUID ana = UUID.randomUUID();
+        UUID otra = UUID.randomUUID();
+        UUID applicationId = UUID.randomUUID();
+        BlockingQueue<String> own = subscribe(connect(token(ana, SECRET, Instant.now().plusSeconds(600))), ana);
+        BlockingQueue<String> other = subscribe(connect(token(otra, SECRET, Instant.now().plusSeconds(600))), otra);
+        String received = null;
+        for (int i = 0; i < 5 && received == null; i++) {
+            publish(EventTypes.APPLICATION_STAGE_CHANGED, Map.of("applicationId", applicationId.toString(),
+                    "stageChangeId", 42L, "recipientIds", List.of(ana.toString())));
+            received = own.poll(1, TimeUnit.SECONDS);
+        }
+        assertThat(received).isNotNull();
+        JsonNode notice = json.readTree(received);
+        assertThat(notice.get("type").asText()).isEqualTo("application.stage.changed");
+        assertThat(notice.get("stageChangeId").asLong()).isEqualTo(42L);
+        assertThat(notice.get("applicationId").asText()).isEqualTo(applicationId.toString());
+        assertThat(notice.has("message")).isFalse();
+        assertThat(other.poll(1, TimeUnit.SECONDS)).isNull();
+    }
+
+    @Test
     void rechazaConexionesSinTokenValido() {
         UUID ana = UUID.randomUUID();
         assertThatThrownBy(() -> connect(null)).as("sin token").isNotNull();
@@ -147,6 +169,41 @@ class RealtimeApplicationTest {
                 .plusSeconds(600)))).as("firmado con otra clave").isNotNull();
         assertThatThrownBy(() -> connect(token(ana, SECRET, Instant.now().minusSeconds(120))))
                 .as("vencido").isNotNull();
+    }
+
+    @Test
+    void avisaEntrevistasSoloADestinatariosSinDatosDeLaCita() throws Exception {
+        UUID recipient = UUID.randomUUID();
+        UUID outsider = UUID.randomUUID();
+        UUID interview = UUID.randomUUID();
+        UUID application = UUID.randomUUID();
+        BlockingQueue<String> own = subscribe(connect(token(recipient, SECRET, Instant.now().plusSeconds(600))), recipient);
+        BlockingQueue<String> other = subscribe(connect(token(outsider, SECRET, Instant.now().plusSeconds(600))), outsider);
+        String received = null;
+        for (int attempt = 0; attempt < 5 && received == null; attempt++) {
+            publish(EventTypes.INTERVIEW_CHANGED, Map.of("applicationId", application.toString(), "interviewId", interview.toString(),
+                    "recipientIds", List.of(recipient.toString(), recipient.toString()), "note", "Dato que no debe reenviarse", "place", "https://example.test"));
+            received = own.poll(1, TimeUnit.SECONDS);
+        }
+        assertThat(received).isNotNull();
+        JsonNode notice = json.readTree(received);
+        assertThat(notice.get("type").asText()).isEqualTo("interview.changed");
+        assertThat(notice.get("interviewId").asText()).isEqualTo(interview.toString());
+        assertThat(notice.get("applicationId").asText()).isEqualTo(application.toString());
+        assertThat(notice.has("note")).isFalse();
+        assertThat(notice.has("place")).isFalse();
+        assertThat(other.poll(1, TimeUnit.SECONDS)).isNull();
+    }
+
+    @Test
+    void unAvisoSinObjetoSeEnviaALaColaDeFallidos() {
+        String id = UUID.randomUUID().toString();
+        rabbit.send(Messaging.EVENTS_EXCHANGE, EventTypes.APPLICATION_STAGE_CHANGED,
+                MessageBuilder.withBody("null".getBytes(StandardCharsets.UTF_8))
+                        .setContentType(MessageProperties.CONTENT_TYPE_JSON).setMessageId(id).build());
+        var failed = rabbit.receive(Messaging.REALTIME_NOTIFICATIONS_DLQ, 10_000);
+        assertThat(failed).isNotNull();
+        assertThat(failed.getMessageProperties().getMessageId()).isEqualTo(id);
     }
 
     @Test
@@ -192,7 +249,11 @@ class RealtimeApplicationTest {
     }
 
     private void publish(Map<String, Object> event) throws Exception {
-        rabbit.send(Messaging.EVENTS_EXCHANGE, EventTypes.MESSAGE_SENT,
+        publish(EventTypes.MESSAGE_SENT, event);
+    }
+
+    private void publish(String eventType, Map<String, Object> event) throws Exception {
+        rabbit.send(Messaging.EVENTS_EXCHANGE, eventType,
                 MessageBuilder.withBody(json.writeValueAsBytes(event))
                         .setContentType(MessageProperties.CONTENT_TYPE_JSON).setMessageId(UUID.randomUUID().toString())
                         .build());

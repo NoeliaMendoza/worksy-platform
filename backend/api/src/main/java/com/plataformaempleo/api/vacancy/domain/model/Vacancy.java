@@ -51,6 +51,7 @@ public record Vacancy(
 
     public Vacancy publish(Instant now) {
         requireStatus(Status.DRAFT, "Solo se puede publicar una vacante en borrador");
+        if (content.offer() != null) content.offer().requirePublishable();
         if (content.criteria().isEmpty()) {
             throw new DomainException("vacancy.criteria.required",
                     "Agrega al menos un criterio antes de publicar la vacante");
@@ -71,7 +72,11 @@ public record Vacancy(
 
     /** Lo que la empresa escribe. Las claves de los criterios (q1, q2, ...) se asignan por posición. */
     public record Content(String title, String description, String location, Modality modality,
-                          List<Criterion> criteria) {
+                          List<Criterion> criteria, OfferDetails offer) {
+
+        public Content(String title, String description, String location, Modality modality, List<Criterion> criteria) {
+            this(title, description, location, modality, criteria, null);
+        }
 
         public Content {
             title = text(title, 3, 160, "El título debe tener entre 3 y 160 caracteres");

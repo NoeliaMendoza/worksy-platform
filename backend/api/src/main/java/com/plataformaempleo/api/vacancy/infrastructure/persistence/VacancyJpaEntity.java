@@ -14,6 +14,13 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "vacancies")
 class VacancyJpaEntity {
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "offer_details", columnDefinition = "jsonb")
+    private com.plataformaempleo.api.vacancy.domain.model.OfferDetails offer;
+
+    void setOffer(com.plataformaempleo.api.vacancy.domain.model.OfferDetails offer) { this.offer = offer; }
+    com.plataformaempleo.api.vacancy.domain.model.OfferDetails getOffer() { return offer; }
+
     @Id
     private UUID id;
 

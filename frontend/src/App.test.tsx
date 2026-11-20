@@ -8,6 +8,19 @@ import { vacancyRankingMock } from '@/mocks/vacancy-ranking'
 const ready = { status: 'ready', data: structuredClone(vacancyRankingMock) } as const
 
 describe('RankingView (panel del reclutador)', () => {
+  it('busca sin distinguir acentos y recupera el ranking al limpiar los filtros', async () => {
+    const user = userEvent.setup()
+    render(<RankingView state={ready} onRetry={() => {}} onDecide={() => {}} />)
+    await user.type(screen.getByLabelText('Buscar por nombre o perfil'), 'andres')
+    expect(screen.getAllByRole('article')).toHaveLength(1)
+    expect(screen.getByRole('article')).toHaveAccessibleName(/Andrés Villanueva Soto/)
+    await user.clear(screen.getByLabelText('Buscar por nombre o perfil'))
+    await user.type(screen.getByLabelText('Buscar por nombre o perfil'), 'sin coincidencias')
+    expect(screen.getByText('No hay CV que coincidan con la búsqueda')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ver todos' }))
+    expect(screen.getAllByRole('article')).toHaveLength(8)
+  })
+
   it('muestra la vacante, el avance y los CV en orden', () => {
     render(<RankingView state={ready} onRetry={() => {}} onDecide={() => {}} />)
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Desarrollador/a backend Java')
@@ -112,15 +125,27 @@ describe('App', () => {
   }
 
   it('una cuenta de candidato ve sus postulaciones y nunca el ranking de otras personas', async () => {
+    window.history.replaceState(null, '', '/postulaciones')
+    window.history.replaceState(null, '', '/postulaciones')
     sessionAs('CANDIDATE', 'candidata@ejemplo.test')
     render(<App />)
-    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Tus postulaciones')
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Mis postulaciones')
     expect(screen.queryByText(/Ranking de/)).not.toBeInTheDocument()
     expect(screen.queryByText('Valeria Quispe Romero')).not.toBeInTheDocument()
     const nav = screen.getAllByRole('navigation', { name: 'Principal' })[0]!
     expect(within(nav).getByRole('link', { name: 'Mis postulaciones' })).toHaveAttribute('aria-current', 'page')
     expect(within(nav).queryByRole('link', { name: 'Candidatos' })).not.toBeInTheDocument()
     expect(screen.getAllByText('Candidato/a').length).toBeGreaterThan(0)
+  })
+
+  it('una cuenta de candidato abre su resumen de Inicio al entrar a la aplicación', async () => {
+    sessionAs('CANDIDATE', 'candidata@ejemplo.test')
+    render(<App />)
+    expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('Inicio')
+    const nav = screen.getAllByRole('navigation', { name: 'Principal' })[0]!
+    expect(within(nav).getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')
+    expect(within(nav).getByRole('link', { name: 'Mis postulaciones' })).toHaveAttribute('href', '/postulaciones')
+    expect(within(nav).queryByRole('link', { name: 'Candidatos' })).not.toBeInTheDocument()
   })
 
   it('la administración de Worksy ve su propio inicio', async () => {

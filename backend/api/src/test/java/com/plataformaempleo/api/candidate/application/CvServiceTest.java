@@ -141,6 +141,27 @@ class CvServiceTest {
                 .isEqualTo(code);
     }
 
+    @Test
+    void conservaSoloElNombreVisibleSinRutaControlesNiDatosEnLogs() {
+        CvDocument doc = service.upload(candidate, SyntheticPdf.of("nombre"), "C:\\carpeta\\cv-\u202Epersona\n.pdf");
+        assertThat(doc.originalName()).isEqualTo("cv-persona.pdf");
+        assertThat(doc.toString()).doesNotContain("persona", "carpeta");
+        CvDocument longName = CvDocument.uploaded(candidate.userId(), com.plataformaempleo.api.candidate.domain.model.PdfFile.of(SyntheticPdf.of("largo")),
+                clock.instant(), "😀".repeat(200));
+        assertThat(longName.originalName().codePointCount(0, longName.originalName().length())).isEqualTo(180);
+        assertThat(service.upload(candidate, SyntheticPdf.of("antiguo")).originalName()).isNull();
+    }
+
+    @Test
+    void elEnlacePropioDuraCincoMinutosYNoSeEmiteParaOtrosRolesOCandidatos() {
+        CvDocument doc = service.upload(candidate, SyntheticPdf.of("lectura"));
+        CvService.ReadLink link = service.readLink(candidate, doc.id());
+        assertThat(link.expiresAt()).isEqualTo(clock.instant().plusSeconds(300));
+        assertThat(link.toString()).doesNotContain(link.url().toString());
+        assertCode(() -> service.readLink(new Actor(UUID.randomUUID(), Role.CANDIDATE, null), doc.id()), "cv.not-found");
+        assertCode(() -> service.readLink(new Actor(UUID.randomUUID(), Role.RECRUITER, UUID.randomUUID()), doc.id()), "access.denied");
+    }
+
     // ---- adaptadores en memoria ----
 
     private static final class InMemoryStorage implements CvStorage {

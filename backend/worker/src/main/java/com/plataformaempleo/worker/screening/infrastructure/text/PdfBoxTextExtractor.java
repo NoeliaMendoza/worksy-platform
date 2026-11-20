@@ -6,6 +6,7 @@ import java.io.IOException;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 
 /** Extrae el texto del PDF con Apache PDFBox y normaliza los espacios. */
 public class PdfBoxTextExtractor implements TextExtractor {
@@ -14,13 +15,15 @@ public class PdfBoxTextExtractor implements TextExtractor {
     public String extract(byte[] pdf) {
         try (PDDocument document = Loader.loadPDF(pdf)) {
             if (document.isEncrypted()) {
-                throw ScreeningFailure.permanent("El PDF está protegido con contraseña");
+                throw ScreeningFailure.permanent("PDF_PASSWORD_PROTECTED", "El PDF está protegido con contraseña");
             }
             PDFTextStripper stripper = new PDFTextStripper();
             stripper.setSortByPosition(true);
             return normalize(stripper.getText(document));
+        } catch (InvalidPasswordException e) {
+            throw ScreeningFailure.permanent("PDF_PASSWORD_PROTECTED", "El PDF está protegido con contraseña");
         } catch (IOException e) {
-            throw ScreeningFailure.permanent("El PDF está dañado o no se puede leer");
+            throw ScreeningFailure.permanent("PDF_UNREADABLE", "El PDF está dañado o no se puede leer");
         }
     }
 

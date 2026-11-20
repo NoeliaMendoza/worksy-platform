@@ -9,6 +9,9 @@ import { navigate } from '@/lib/router'
 import { useResource } from '@/lib/use-resource'
 import { LoadError, LoadingRows } from '@/features/vacancy/resource-states'
 import { ApiError } from '@/features/auth/api'
+import { screeningFailureMessage } from './screening-failure'
+import { ApplicationProgressPanel } from './application-progress'
+import { stageLabel } from './stage-labels'
 import {
   applicationsApi,
   screeningApi,
@@ -63,7 +66,7 @@ export function ReceivedApplications({ token, vacancyId }: { token: string; vaca
   return (
     <section aria-labelledby="postulaciones-recibidas" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-baseline gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
           <h2 id="postulaciones-recibidas" className="text-lg font-semibold text-ink-900">
             Postulaciones recibidas
           </h2>
@@ -96,7 +99,7 @@ export function ReceivedApplications({ token, vacancyId }: { token: string; vaca
             className="py-10"
           />
         ) : (
-          <ol className="divide-y divide-ink-100 rounded-card bg-white shadow-soft">
+          <ol className="divide-y divide-ink-100 rounded-card border border-ink-100 bg-white shadow-soft">
             {state.data.applications.map((a, i) => (
               <ApplicationRow
                 key={a.id}
@@ -226,7 +229,7 @@ function ApplicationRow({
 
   const label = screening ? screeningLabel[screening.status] : null
   return (
-    <li className="flex flex-col gap-3 px-5 py-4 sm:px-6">
+    <li className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="w-6 text-right text-sm text-ink-500 tabular-nums">{position}</span>
         <div className="min-w-0 flex-1">
@@ -245,6 +248,9 @@ function ApplicationRow({
           </p>
         </div>
         {label && <Badge tone={label.tone}>{label.text}</Badge>}
+        {a.shared && <Badge tone="azure">{stageLabel[a.stage ?? 'RECEIVED']}</Badge>}
+        {a.shared && a.stage !== 'HIRED' && a.stage !== 'REJECTED' && <Button variant="secondary" size="sm"
+          onClick={() => navigate(`/entrevistas?postulacion=${a.id}`)}>Agendar entrevista</Button>}
         {a.shared && (
           <Button
             variant="secondary"
@@ -270,10 +276,15 @@ function ApplicationRow({
         )}
       </div>
       {a.shared && screening?.status === 'FAILED' && (
+        <p className="text-sm text-ink-700 sm:pl-10">{screeningFailureMessage(screening.failureCode)}</p>
+      )}
+      {a.shared && screening?.status === 'FAILED' && (
         <RetryScreening token={token} vacancyId={vacancyId} requestId={screening.id}
           candidateName={a.candidateEmail ?? 'esta postulación'} onRetried={onRetried} onRefresh={onRefresh} />
       )}
       {error && <Notice tone="error">{error}</Notice>}
+      {a.shared && <ApplicationProgressPanel token={token} applicationId={a.id} vacancyId={vacancyId}
+        label={a.candidateEmail ?? 'esta postulación'} onStageChanged={onRefresh} />}
     </li>
   )
 }

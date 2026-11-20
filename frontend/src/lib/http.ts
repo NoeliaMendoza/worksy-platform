@@ -1,7 +1,7 @@
 import { ApiError } from '@/features/auth/api'
 
 type Options = {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   /** Objeto JSON, o FormData para subir archivos (el navegador pone el Content-Type del multipart). */
   body?: unknown
   /** Token de acceso; se envía como Authorization: Bearer. */

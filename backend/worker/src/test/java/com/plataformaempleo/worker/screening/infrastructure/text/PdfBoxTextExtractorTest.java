@@ -52,6 +52,24 @@ class PdfBoxTextExtractorTest {
     }
 
     @Test
+    void unPdfProtegidoTieneUnMotivoEspecifico() throws IOException {
+        byte[] pdf;
+        try (PDDocument doc = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            doc.addPage(new PDPage());
+            doc.protect(new org.apache.pdfbox.pdmodel.encryption.StandardProtectionPolicy(
+                    "propietario-sintetico", "clave-sintetica",
+                    new org.apache.pdfbox.pdmodel.encryption.AccessPermission()));
+            doc.save(out);
+            pdf = out.toByteArray();
+        }
+        assertThatThrownBy(() -> extractor.extract(pdf))
+                .isInstanceOfSatisfying(ScreeningFailure.class, f -> {
+                    assertThat(f.code()).isEqualTo("PDF_PASSWORD_PROTECTED");
+                    assertThat(f.retryable()).isFalse();
+                });
+    }
+
+    @Test
     void unArchivoDanadoEsUnFalloDefinitivo() {
         assertThatThrownBy(() -> extractor.extract("%PDF-1.7 roto".getBytes(StandardCharsets.US_ASCII)))
                 .isInstanceOfSatisfying(ScreeningFailure.class, f -> assertThat(f.retryable()).isFalse());

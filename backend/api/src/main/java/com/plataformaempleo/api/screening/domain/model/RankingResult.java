@@ -12,7 +12,21 @@ public record RankingResult(UUID applicationId, String fullName, String email, S
                             Decision decision) {
     public enum Decision { preseleccionado, en_espera, descartado }
 
-    public record Answer(String criterionId, String answer, BigDecimal score, BigDecimal probability) { }
+    public record Answer(String criterionId, String answer, BigDecimal score, BigDecimal probability, Evidence evidence) { }
+
+    public record Evidence(String method, String sourceTextSha256, List<Snippet> snippets) {
+        public Evidence {
+            snippets = List.copyOf(snippets);
+        }
+
+        @Override
+        public String toString() { return "Evidence[method=" + method + ", snippets=" + snippets.size() + "]"; }
+    }
+
+    public record Snippet(String text, int startOffset, int endOffset) {
+        @Override
+        public String toString() { return "Snippet[startOffset=" + startOffset + ", endOffset=" + endOffset + "]"; }
+    }
 
     public boolean analyzed() {
         return (status == ScreeningRequest.Status.COMPLETED || status == ScreeningRequest.Status.NEEDS_REVIEW)

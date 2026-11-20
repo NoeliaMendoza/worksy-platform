@@ -18,11 +18,13 @@ final class CandidateDtos {
             UUID id,
             @Schema(example = "245760") long sizeBytes,
             @Schema(example = "UPLOADED") CvDocument.Status status,
-            Instant uploadedAt) {
+            Instant uploadedAt,
+            @Schema(description = "Nombre del archivo sin ruta; null en archivos antiguos") String originalName) {
 
         static CvResponse from(CvDocument d) {
-            return new CvResponse(d.id(), d.sizeBytes(), d.status(), d.uploadedAt());
+            return new CvResponse(d.id(), d.sizeBytes(), d.status(), d.uploadedAt(), d.originalName());
         }
+        @Override public String toString() { return "CvResponse[id=" + id + "]"; }
     }
 
     @Schema(name = "CandidateConsents", description = "Qué permite ver el candidato a los reclutadores")

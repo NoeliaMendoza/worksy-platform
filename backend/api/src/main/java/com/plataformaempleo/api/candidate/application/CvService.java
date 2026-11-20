@@ -9,6 +9,9 @@ import com.plataformaempleo.api.identity.domain.model.Role;
 import com.plataformaempleo.api.shared.application.Actor;
 import com.plataformaempleo.common.domain.DomainException;
 import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.net.URI;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -44,6 +47,10 @@ public class CvService {
     }
 
     public CvDocument upload(Actor actor, byte[] content) {
+        return upload(actor, content, null);
+    }
+
+    public CvDocument upload(Actor actor, byte[] content, String originalName) {
         UUID candidateId = actor.requireRole(Role.CANDIDATE);
         PdfFile file = PdfFile.of(content);
         if (documents.existsByCandidateAndSha256(candidateId, file.sha256())) {
@@ -54,7 +61,7 @@ public class CvService {
                     "Puedes tener hasta " + MAX_PER_CANDIDATE + " CV. Elimina uno para subir otro");
         }
 
-        CvDocument document = CvDocument.uploaded(candidateId, file, clock.instant());
+        CvDocument document = CvDocument.uploaded(candidateId, file, clock.instant(), originalName);
         storage.put(document.storageKey(), file.content(), PdfFile.MIME);
         try {
             return documents.save(document);
@@ -66,6 +73,18 @@ public class CvService {
 
     public List<CvDocument> list(Actor actor) {
         return documents.findByCandidate(actor.requireRole(Role.CANDIDATE));
+    }
+
+    public record ReadLink(URI url, Instant expiresAt) {
+        @Override public String toString() { return "CvReadLink[redacted]"; }
+    }
+
+    public ReadLink readLink(Actor actor, UUID cvId) {
+        UUID candidateId = actor.requireRole(Role.CANDIDATE);
+        CvDocument document = documents.findById(cvId).filter(d -> d.belongsTo(candidateId))
+                .orElseThrow(() -> new DomainException("cv.not-found", "El CV no existe"));
+        Duration validity = Duration.ofMinutes(5);
+        return new ReadLink(storage.temporaryReadUrl(document.storageKey(), validity), clock.instant().plus(validity));
     }
 
     public void delete(Actor actor, UUID cvId) {

@@ -1,0 +1,72 @@
+name: worksy-evaluation
+
+services:
+  inference:
+    image: worksy-evaluation-inference:local
+    build:
+      context: ../../inference
+    environment:
+      LAYA_BASE_URL: http://laya:8000
+      LAYA_MODEL: smoke-multilingual
+      LAYA_MODEL_VERSION: laya-ml@1720e3e3357cfe1e281542e223f8273b0890ca34
+      LAYA_TIMEOUT_SECONDS: "4"
+      LAYA_MAX_LEN: "8192"
+    mem_limit: 256m
+    networks: [evaluation]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  laya:
+    profiles: ["laya"]
+    image: ${EVAL_LAYA_IMAGE:-worksy-laya-cpu:review}
+    command: ["laya-serve"]
+    environment:
+      LAYA_DEVICE: cpu
+      LAYA_PRELOAD: "1"
+      LAYA_MODELS: smoke-multilingual
+      LAYA_DEFAULT_MODEL: smoke-multilingual
+      LAYA_EXTRA_MODELS: '{"smoke-multilingual":"convaiinnovations/laya-multilingual"}'
+      LAYA_REVISION: "1720e3e3357cfe1e281542e223f8273b0890ca34"
+      LAYA_THREADS: "4"
+      OMP_NUM_THREADS: "4"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - model-cache:/home/laya/.cache/huggingface
+    cpus: 4
+    mem_limit: 3g
+    networks: [evaluation]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  evaluator:
+    profiles: ["tools"]
+    image: python:3.12-slim
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+    entrypoint: ["python", "/evaluation/evaluate.py"]
+    command: ["--url", "http://inference:8000", "--providers", "baseline", "laya", "--repeats", "3", "--output-root", "/results", "--target-label", "Docker CPU; Laya 4 hilos, limite 4 CPU y 3 GiB; timeout adaptador 4 s; max_len 8192"]
+    volumes:
+      - ./:/evaluation:ro
+      - ../../bench/results:/results
+    mem_limit: 256m
+    networks: [evaluation]
+    depends_on:
+      inference:
+        condition: service_healthy
+
+networks:
+  evaluation:
+    internal: true
+
+volumes:
+  model-cache:
+    external: true
+    name: ${EVAL_MODEL_CACHE:-worksy-smoke_laya-model-cache}

@@ -51,12 +51,21 @@ class ScreeningRequestJpaEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "failure_code", length = 64)
+    private String failureCode;
+
+    @Column(name = "evidence_method", length = 32)
+    private String evidenceMethod;
+
+    @Column(name = "source_text_sha256", length = 64)
+    private String sourceTextSha256;
+
     protected ScreeningRequestJpaEntity() {
     }
 
     ScreeningRequestJpaEntity(UUID id, UUID vacancyId, UUID applicationId, UUID cvId, String provider,
                               String modelVersion, String status, int attempts, BigDecimal overallScore,
-                              BigDecimal confidence, UUID requestedBy, Instant requestedAt, Instant updatedAt) {
+                              BigDecimal confidence, UUID requestedBy, Instant requestedAt, Instant updatedAt, String failureCode) {
         this.id = id;
         this.vacancyId = vacancyId;
         this.applicationId = applicationId;
@@ -70,6 +79,7 @@ class ScreeningRequestJpaEntity {
         this.requestedBy = requestedBy;
         this.requestedAt = requestedAt;
         this.updatedAt = updatedAt;
+        this.failureCode = failureCode;
     }
 
     UUID getId() { return id; }
@@ -85,4 +95,5 @@ class ScreeningRequestJpaEntity {
     UUID getRequestedBy() { return requestedBy; }
     Instant getRequestedAt() { return requestedAt; }
     Instant getUpdatedAt() { return updatedAt; }
+    String getFailureCode() { return failureCode; }
 }

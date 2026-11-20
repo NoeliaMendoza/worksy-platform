@@ -5,6 +5,8 @@ import com.plataformaempleo.api.jobapplication.application.JobApplicationService
 import com.plataformaempleo.api.jobapplication.application.JobApplicationService.CvLink;
 import com.plataformaempleo.api.jobapplication.application.JobApplicationService.RecruiterView;
 import com.plataformaempleo.api.jobapplication.domain.model.JobApplication;
+import com.plataformaempleo.api.jobapplication.domain.model.ApplicationStage;
+import com.plataformaempleo.api.jobapplication.domain.model.ApplicationProgress;
 import com.plataformaempleo.api.shared.infrastructure.web.CurrentActor;
 import com.plataformaempleo.api.vacancy.domain.model.Vacancy;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +16,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
@@ -25,6 +28,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -50,11 +54,13 @@ final class JobApplicationControllers {
 
     @Schema(name = "MyApplication", description = "Postulación vista por la persona que se postuló")
     record MyApplicationResponse(UUID id, UUID vacancyId, String vacancyTitle, String companyName,
-                                 Vacancy.Status vacancyStatus, UUID cvId, Instant appliedAt) {
+                                 Vacancy.Status vacancyStatus, UUID cvId, Instant appliedAt, ApplicationStage stage,
+                                 @Schema(description = "Etapas y fechas registradas, sin mensajes del historial")
+                                 List<ApplicationProgress.Milestone> milestones) {
         static MyApplicationResponse from(CandidateView v) {
             var a = v.application();
             return new MyApplicationResponse(a.id(), a.vacancyId(), v.vacancyTitle(), v.companyName(),
-                    v.vacancyStatus(), a.cvId(), a.appliedAt());
+                    v.vacancyStatus(), a.cvId(), a.appliedAt(), v.stage(), v.milestones());
         }
     }
 
@@ -65,12 +71,18 @@ final class JobApplicationControllers {
             Instant appliedAt,
             @Schema(description = "false si la persona retiró el permiso de compartir su CV") boolean shared,
             @Schema(description = "Solo si shared es true") String candidateEmail,
-            @Schema(description = "Solo si shared es true") UUID cvId) {
+            @Schema(description = "Solo si shared es true") UUID cvId,
+            ApplicationStage stage) {
         static VacancyApplicationResponse from(RecruiterView v) {
             return new VacancyApplicationResponse(v.applicationId(), v.appliedAt(), v.shared(), v.candidateEmail(),
-                    v.cvId());
+                    v.cvId(), v.stage());
         }
     }
+
+    @Schema(name = "ApplicationStageChange")
+    record StageChange(@NotNull ApplicationStage expectedStage, @NotNull ApplicationStage stage,
+                       @Schema(description = "Mensaje opcional visible para el candidato; no usar para notas internas")
+                       @Size(max = 500) String message) { }
 
     @Schema(name = "CvLink", description = "Enlace temporal de solo lectura al PDF del CV")
     record CvLinkResponse(
@@ -115,6 +127,12 @@ final class JobApplicationControllers {
             return service.mine(CurrentActor.from(jwt)).stream().map(MyApplicationResponse::from).toList();
         }
 
+        @GetMapping("/api/v1/candidates/me/applications/{applicationId}/progress")
+        @Operation(summary = "Etapa e historial de una postulación propia", security = @SecurityRequirement(name = "bearer"))
+        ApplicationProgress progress(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID applicationId) {
+            return service.candidateProgress(CurrentActor.from(jwt), applicationId);
+        }
+
         @DeleteMapping("/api/v1/candidates/me/applications/{applicationId}")
         @Operation(summary = "Retirar una postulación", security = @SecurityRequirement(name = "bearer"))
         @ApiResponse(responseCode = "204", description = "Postulación retirada")
@@ -141,6 +159,26 @@ final class JobApplicationControllers {
         @ApiResponse(responseCode = "404", description = "La vacante no existe en esta empresa")
         List<VacancyApplicationResponse> forVacancy(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
             return service.forVacancy(CurrentActor.from(jwt), id).stream().map(VacancyApplicationResponse::from).toList();
+        }
+
+        @GetMapping("/api/v1/companies/me/vacancies/{id}/applications/{applicationId}/progress")
+        @Operation(summary = "Etapa e historial de una postulación de la empresa", security = @SecurityRequirement(name = "bearer"))
+        ApplicationProgress progress(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @PathVariable UUID applicationId) {
+            return service.companyProgress(CurrentActor.from(jwt), id, applicationId);
+        }
+
+        @PatchMapping("/api/v1/companies/me/vacancies/{id}/applications/{applicationId}/progress")
+        @Operation(summary = "Cambiar la etapa de selección",
+                description = "Cambio humano con historial y mensaje visible para el candidato. Exige la etapa anterior.",
+                security = @SecurityRequirement(name = "bearer"))
+        @ApiResponse(responseCode = "409", description = "Otro reclutador ya cambió la etapa; actualizar antes de continuar")
+        @ApiResponse(responseCode = "400", description = "Transición no permitida o mensaje inválido")
+        @ApiResponse(responseCode = "403", description = "Sin rol autorizado o consentimiento para compartir el CV")
+        @ApiResponse(responseCode = "404", description = "Vacante o postulación ajenas")
+        ApplicationProgress move(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id,
+                                 @PathVariable UUID applicationId, @Valid @RequestBody StageChange body) {
+            return service.moveStage(CurrentActor.from(jwt), id, applicationId,
+                    body.expectedStage(), body.stage(), body.message());
         }
 
         @GetMapping("/api/v1/companies/me/vacancies/{id}/applications/{applicationId}/cv")

@@ -25,6 +25,32 @@ import org.springframework.http.ResponseEntity;
 @Import(TestcontainersConfig.class)
 class VacancyIntegrationTest {
 
+    @Test
+    void guardaCondicionesYLasPublicaSoloTrasCompletarLaOferta() throws Exception {
+        String token = companyAdmin("Empresa oferta sintética");
+        var body = new java.util.HashMap<String, Object>(vacancy("Oferta completa", CRITERIA));
+        body.put("offer", Map.of("area", "Tecnología"));
+        var created = send(HttpMethod.POST, "/api/v1/companies/me/vacancies", body, token);
+        assertThat(created.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+        String id = json.readTree(created.getBody()).get("id").asText();
+        assertThat(send(HttpMethod.POST, "/api/v1/companies/me/vacancies/" + id + "/publish", null, token).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        var offer = new java.util.HashMap<String, Object>();
+        offer.put("contractType", "INDEFINITE"); offer.put("workSchedule", "FULL_TIME");
+        offer.put("responsibilities", "Desarrollar servicios"); offer.put("requirements", "Experiencia con Java");
+        offer.put("benefits", "Formación continua"); offer.put("salaryMin", 1200); offer.put("salaryMax", 2000);
+        offer.put("currency", "USD"); offer.put("salaryPeriod", "MONTH");
+        body.put("offer", offer);
+        assertThat(send(HttpMethod.PUT, "/api/v1/companies/me/vacancies/" + id, body, token).getStatusCode()).isEqualTo(HttpStatus.OK);
+        var stored = json.readTree(send(HttpMethod.GET, "/api/v1/companies/me/vacancies/" + id, null, token).getBody()).get("offer");
+        assertThat(stored.get("salaryMax").decimalValue()).isEqualByComparingTo("2000");
+        assertThat(send(HttpMethod.POST, "/api/v1/companies/me/vacancies/" + id + "/publish", null, token).getStatusCode()).isEqualTo(HttpStatus.OK);
+        var published = json.readTree(send(HttpMethod.GET, "/api/v1/vacancies/" + id, null, null).getBody()).get("offer");
+        assertThat(published.get("benefits").asText()).isEqualTo("Formación continua");
+        assertThat(published.get("contractType").asText()).isEqualTo("INDEFINITE");
+        offer.put("salaryMax", 1000);
+        assertThat(send(HttpMethod.POST, "/api/v1/companies/me/vacancies", body, token).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
     private static final String PASSWORD = "frase-sintetica-larga";
 
     @Autowired

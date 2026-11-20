@@ -26,7 +26,7 @@ function NavList({ items, current, onNavigate }: { items: NavItem[]; current: st
               aria-current={active ? 'page' : undefined}
               aria-label={badge ? `${label}, ${badge} sin leer` : undefined}
               className={cn(
-                'flex items-center gap-3 rounded-full px-4 py-2.5 text-sm font-medium transition-colors focus-visible:outline-azure-300',
+                'flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-azure-300',
                 active ? 'bg-white text-navy-900' : 'text-azure-200 hover:bg-white/10 hover:text-white',
               )}
             >
@@ -95,7 +95,7 @@ export function AppShell({ nav, current, account, onLogout, children }: AppShell
   const menuButton = useRef<HTMLButtonElement>(null)
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[16rem_minmax(0,1fr)]">
+    <div className="min-h-dvh lg:grid lg:grid-cols-[14rem_minmax(0,1fr)]">
       <a
         href="#contenido"
         className="sr-only z-50 rounded-full bg-white px-4 py-2 text-sm font-semibold text-navy-900 focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
@@ -104,7 +104,7 @@ export function AppShell({ nav, current, account, onLogout, children }: AppShell
       </a>
 
       {/* Escritorio */}
-      <aside className="sticky top-0 hidden h-dvh flex-col gap-8 overflow-y-auto bg-navy-900 p-5 lg:flex">
+      <aside className="sticky top-0 hidden h-dvh flex-col gap-6 overflow-y-auto bg-navy-900 p-4 lg:flex">
         <div className="px-2 pt-1">
           <Logo />
         </div>

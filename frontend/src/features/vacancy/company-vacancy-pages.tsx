@@ -1,6 +1,7 @@
 import { ArrowLeft, ListOrdered, LoaderCircle, Lock } from 'lucide-react'
 import { useState } from 'react'
 import { AppLink } from '@/components/app-link'
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Notice } from '@/components/ui/notice'
@@ -13,6 +14,7 @@ import { companyVacancies, type CompanyVacancy } from './api'
 import { formatDate, kindLabel, modalityLabel, statusLabel, statusTone } from './labels'
 import { LoadError, LoadingRows } from './resource-states'
 import { VacancyEditor } from './vacancy-editor'
+import { OfferContent } from './offer-details'
 
 function useToken() {
   const { state } = useAuth()
@@ -28,19 +30,15 @@ function BackToList() {
   )
 }
 
-const pageClass = 'mx-auto flex max-w-4xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10'
+const pageClass = 'app-page'
 
 /** Crear una vacante nueva (queda en borrador o se publica directamente). */
 export function NewVacancyPage() {
   const token = useToken()
   return (
     <div className={pageClass}>
-      <header>
-        <BackToList />
-        <h1 className="mt-4 text-4xl leading-[1.1] font-light tracking-tight text-navy-900 sm:text-5xl">
-          Nueva <span className="font-semibold">vacante</span>
-        </h1>
-      </header>
+      <BackToList />
+      <PageHeader title="Nueva vacante" description="Describe el puesto y define los criterios de revisión. Guarda un borrador o publícalo para recibir postulaciones." />
       <VacancyEditor token={token} onSaved={(v) => navigate(`/vacantes/${v.id}`)} />
     </div>
   )
@@ -71,13 +69,9 @@ export function CompanyVacancyPage({ id }: { id: string }) {
   const v = state.data
   return (
     <div className={pageClass}>
-      <header>
-        <BackToList />
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <h1 className="text-4xl leading-[1.1] font-light tracking-tight text-navy-900 sm:text-5xl">{v.title}</h1>
-          <Badge tone={statusTone[v.status]}>{statusLabel[v.status]}</Badge>
-        </div>
-      </header>
+      <BackToList />
+      <PageHeader title={v.title} description={v.status === 'DRAFT' ? 'Este borrador todavía no es visible para las personas candidatas.' : 'Revisa las postulaciones y el análisis de CV antes de tomar una decisión.'}
+        actions={<Badge tone={statusTone[v.status]}>{statusLabel[v.status]}</Badge>} />
 
       {v.status === 'DRAFT' ? (
         <>
@@ -178,7 +172,7 @@ function PublishedVacancy({
 /** Resumen de solo lectura: datos, descripción y criterios. */
 function VacancySummary({ vacancy: v }: { vacancy: CompanyVacancy }) {
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <dl className="grid gap-4 rounded-card bg-white p-5 shadow-soft sm:grid-cols-3 sm:p-6">
         <div>
           <dt className="text-sm text-ink-500">Ubicación</dt>
@@ -197,21 +191,22 @@ function VacancySummary({ vacancy: v }: { vacancy: CompanyVacancy }) {
           </div>
         )}
       </dl>
-      <section aria-labelledby="descripcion" className="rounded-card bg-white p-5 shadow-soft sm:p-6">
-        <h2 id="descripcion" className="text-lg font-semibold text-ink-900">
+      <section aria-labelledby="descripcion" className="rounded-card border border-ink-100 bg-white p-4 shadow-soft">
+        <h2 id="descripcion" className="text-base font-semibold text-ink-900">
           Descripción
         </h2>
-        <p className="mt-2 text-base leading-relaxed whitespace-pre-line text-ink-700">{v.description}</p>
+        <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-ink-700">{v.description}</p>
       </section>
       <CriteriaList criteria={v.criteria} />
+      {v.offer && <OfferContent offer={v.offer} />}
     </div>
   )
 }
 
 export function CriteriaList({ criteria, title = 'Qué se evalúa en cada CV' }: { criteria: CompanyVacancy['criteria']; title?: string }) {
   return (
-    <section aria-labelledby="criterios-lista" className="rounded-card bg-white p-5 shadow-soft sm:p-6">
-      <h2 id="criterios-lista" className="text-lg font-semibold text-ink-900">
+    <section aria-labelledby="criterios-lista" className="rounded-card border border-ink-100 bg-white p-4 shadow-soft">
+      <h2 id="criterios-lista" className="text-base font-semibold text-ink-900">
         {title}
       </h2>
       <ol className="mt-4 flex flex-col gap-4">

@@ -16,7 +16,17 @@ import java.util.Objects;
  * </ul>
  */
 public record ScreeningOutcome(List<CriterionResult> results, double overallScore, double confidence,
-                               boolean needsReview, String modelVersion) {
+                               boolean needsReview, String modelVersion, CvEvidence evidence) {
+
+    public ScreeningOutcome(List<CriterionResult> results, double overallScore, double confidence,
+                            boolean needsReview, String modelVersion) {
+        this(results, overallScore, confidence, needsReview, modelVersion, null);
+    }
+
+    public ScreeningOutcome withEvidence(String extractedText, List<Criterion> criteria) {
+        return new ScreeningOutcome(results, overallScore, confidence, needsReview, modelVersion,
+                CvEvidence.collect(extractedText, criteria));
+    }
 
     public record CriterionResult(String questionKey, String choice, double probability, double score, int latencyMs) {
     }

@@ -1,0 +1,7 @@
+# Diagnóstico del modelo: NO representa el timeout de 4 s del despliegue normal.
+services:
+  inference:
+    environment:
+      LAYA_TIMEOUT_SECONDS: "120"
+  evaluator:
+    command: ["--url", "http://inference:8000", "--providers", "baseline", "laya", "--repeats", "1", "--timeout", "130", "--output-root", "/results", "--target-label", "DIAGNOSTICO CPU: timeout adaptador 120 s, evaluador 130 s; 4 hilos, limite 4 CPU y 3 GiB; max_len 8192; NO usa el timeout normal de 4 s"]

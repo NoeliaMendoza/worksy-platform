@@ -30,24 +30,40 @@ export function EvidenceStrip({ criteria, answers, expanded = false, id }: Evide
           <li
             key={c.id}
             className={cn(
-              'text-xs',
-              expanded ? 'rounded-2xl bg-azure-50 p-3' : cn('inline-flex items-center gap-1.5 rounded-full py-1 pr-2.5 pl-1', chip),
+              'min-w-0 break-words text-xs',
+              expanded ? 'rounded-lg bg-azure-50 p-3' : cn('inline-flex items-center gap-1.5 rounded-full py-1 pr-2.5 pl-1', chip),
             )}
           >
             {expanded ? (
               <>
-                <p className="flex items-center gap-2 font-semibold text-ink-900">
+                <p className="flex flex-wrap items-center gap-2 font-semibold text-ink-900">
                   <span className={cn('grid size-4 place-items-center rounded-full', icon)}>
                     <Icon className="size-3" strokeWidth={3} aria-hidden="true" />
                   </span>
                   {c.label}: {a.answer}
-                  <span className="font-medium text-ink-500">({outcomeLabel[a.outcome]})</span>
+                  <span className="font-medium text-ink-500">({outcomeLabel[a.outcome]} según el análisis)</span>
                 </p>
-                <p className="mt-1.5 leading-relaxed text-ink-700">
+                {a.evidenceDetails ? (
+                  <div className="mt-2 flex flex-col gap-2 leading-relaxed text-ink-700">
+                    {a.evidenceDetails.snippets.length > 0 ? (
+                      <>
+                        <p className="font-semibold">Texto relacionado del CV</p>
+                        {a.evidenceDetails.snippets.map((snippet) => (
+                          <blockquote key={`${snippet.startOffset}:${snippet.endOffset}`}
+                            className="whitespace-pre-wrap break-words border-l-2 border-azure-200 pl-3">{snippet.text}</blockquote>
+                        ))}
+                        <p className="text-ink-500">Fragmentos parciales del texto extraído. Una mención puede ser una negación o un curso: no demuestra experiencia ni confirma la respuesta del análisis. Revisa el CV completo.</p>
+                      </>
+                    ) : (
+                      <p>No se encontraron coincidencias textuales para este criterio. Esto no demuestra que falte experiencia; revisa el CV completo.</p>
+                    )}
+                  </div>
+                ) : <p className="mt-1.5 leading-relaxed text-ink-700">
                   {a.evidence ? `“${a.evidence}”` : a.evidenceUnavailable
                     ? 'El análisis no incluye una cita del PDF. Comprueba esta respuesta en el CV.'
-                    : 'El CV no menciona este criterio.'}
+                    : 'No hay un fragmento disponible para este criterio. Revisa el CV completo.'}
                 </p>
+                }
               </>
             ) : (
               <>
