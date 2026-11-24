@@ -7,16 +7,17 @@ type ChoicePillsProps<T extends string> = {
   options: { value: T; label: string }[]
   onChange: (value: T) => void
   className?: string
+  disabled?: boolean
 }
 
 /**
  * Grupo de opciones excluyentes con aspecto de píldora. Son radios nativos dentro de un fieldset:
  * flechas para moverse, leyenda anunciada y estado "seleccionado" sin ARIA extra.
  */
-export function ChoicePills<T extends string>({ legend, value, options, onChange, className }: ChoicePillsProps<T>) {
+export function ChoicePills<T extends string>({ legend, value, options, onChange, className, disabled }: ChoicePillsProps<T>) {
   const name = useId()
   return (
-    <fieldset className={cn('flex flex-col gap-2', className)}>
+    <fieldset disabled={disabled} className={cn('flex flex-col gap-2 disabled:opacity-60', className)}>
       <legend className="mb-2 text-sm font-semibold text-ink-900">{legend}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map((o) => (

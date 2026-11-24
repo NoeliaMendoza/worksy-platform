@@ -1,5 +1,5 @@
 import { LoaderCircle, Send } from 'lucide-react'
-import { useId, useState, type FormEvent } from 'react'
+import { useId, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { ChoicePills } from '@/components/ui/choice-pills'
 import { Field } from '@/components/ui/field'
@@ -11,7 +11,7 @@ import { companyVacancies, type CompanyVacancy, type Modality, type VacancyInput
 import { OfferEditor, OfferContent } from './offer-details'
 import { offerDraft, offerValue, offerErrors } from './offer-draft'
 import { CriteriaEditor } from './criteria-editor'
-import { newCriterion, type CriterionDraft } from './criterion-draft'
+import { newCriterion, criterionErrors, type CriterionDraft } from './criterion-draft'
 import { modalityLabel } from './labels'
 
 type Props = {
@@ -28,6 +28,8 @@ export function VacancyEditor({ token, initial, onSaved }: Props) {
   const [offer, setOffer] = useState(() => offerDraft(initial?.offer))
   const [offerProblems, setOfferProblems] = useState<Partial<Record<keyof OfferDetails, string>>>({})
   const [preview, setPreview] = useState(false)
+  const [showCriteriaErrors, setShowCriteriaErrors] = useState(false)
+  const formRef = useRef<HTMLFormElement>(null)
   const [savedDraft, setSavedDraft] = useState(initial)
   const [title, setTitle] = useState(initial?.title ?? '')
   const [location, setLocation] = useState(initial?.location ?? '')
@@ -48,7 +50,8 @@ export function VacancyEditor({ token, initial, onSaved }: Props) {
   const descriptionId = useId()
   const publishLabels: Record<string, string> = { contractType: 'contrato', workSchedule: 'jornada', responsibilities: 'responsabilidades', requirements: 'requisitos', salaryMin: 'rango salarial', currency: 'moneda', salaryPeriod: 'período salarial' }
   const missing = [title.trim().length < 3 && 'título', location.trim().length < 2 && 'ubicación', description.trim().length < 20 && 'descripción',
-    ...Object.keys(offerErrors(offer, true)).map((key) => publishLabels[key] || key), criteria.length === 0 && 'al menos un criterio'].filter(Boolean)
+    ...Object.keys(offerErrors(offer, true)).map((key) => publishLabels[key] || key), criteria.length === 0 && 'al menos un criterio',
+    ...criteria.flatMap((c, i) => Object.keys(criterionErrors(c)).length ? [`criterio ${i + 1}`] : [])].filter(Boolean)
 
   function input(): VacancyInput {
     return {
@@ -76,11 +79,16 @@ export function VacancyEditor({ token, initial, onSaved }: Props) {
     if (description.trim().length < 20) found.description = 'Describe el puesto en al menos 20 caracteres.'
     setErrors(found)
     const problems = offerErrors(offer, publish)
+    if (publish) setShowCriteriaErrors(true)
     setOfferProblems(problems)
     const first = found.title ? titleId : found.location ? locationId : found.description ? descriptionId : null
     if (first) return document.getElementById(first)?.focus()
     const firstOffer = Object.keys(problems)[0]
     if (firstOffer) return document.getElementById(`offer-${firstOffer}`)?.focus()
+    if (publish && criteria.some((c) => Object.keys(criterionErrors(c)).length > 0)) {
+      requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[data-criterion] [aria-invalid="true"]')?.focus())
+      return
+    }
 
     setBusy(publish ? 'publish' : 'save')
     try {
@@ -98,7 +106,7 @@ export function VacancyEditor({ token, initial, onSaved }: Props) {
   }
 
   return (
-    <form noValidate onSubmit={(e) => submit(e, false)} className="flex w-full max-w-5xl flex-col gap-4">
+    <form ref={formRef} noValidate onSubmit={(e) => submit(e, false)} className="flex w-full max-w-5xl flex-col gap-4">
       {formError && (
         <Notice tone="error" autoFocus>
           {formError}
@@ -141,6 +149,7 @@ export function VacancyEditor({ token, initial, onSaved }: Props) {
             legend="Modalidad *"
             value={modality}
             onChange={setModality}
+            disabled={busy !== null}
             options={(['PRESENCIAL', 'HIBRIDO', 'REMOTO'] as const).map((m) => ({ value: m, label: modalityLabel[m] }))}
           />
         </div>
@@ -165,7 +174,7 @@ export function VacancyEditor({ token, initial, onSaved }: Props) {
       <section aria-label="Evaluación interna" className="space-y-3 border-t border-ink-100 pt-4">
         <h2 className="text-base font-semibold">Evaluación interna</h2>
         <p className="text-sm text-ink-700">Estos criterios organizan la revisión del CV y no se muestran en la oferta pública. La decisión final la toma tu equipo.</p>
-        <CriteriaEditor value={criteria} onChange={setCriteria} disabled={busy !== null} />
+        <CriteriaEditor value={criteria} onChange={setCriteria} disabled={busy !== null} showErrors={showCriteriaErrors} />
       </section>
 
       <Button variant="secondary" className="self-start" aria-expanded={preview} aria-controls="vista-previa-oferta" onClick={() => setPreview(!preview)}>{preview ? 'Ocultar vista previa' : 'Vista previa de la oferta'}</Button>
