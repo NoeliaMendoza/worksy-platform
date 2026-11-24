@@ -16,7 +16,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock)
 })
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => { vi.unstubAllGlobals(); window.history.replaceState(null,'','/') })
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -59,6 +59,28 @@ const mine = (vacancyId = 'v-1') => ({
   vacancyStatus: 'PUBLISHED',
   cvId: 'cv-1',
   appliedAt: '2026-11-11T16:00:00Z',
+})
+
+it('abre únicamente el seguimiento indicado por el aviso', async () => {
+  window.history.replaceState(null,'','/postulaciones?postulacion=a-2')
+  routes({
+    'GET /api/v1/candidates/me/applications':()=>json(200,[mine(),{...mine('v-2'),id:'a-2',vacancyTitle:'Analista'}]),
+    'GET /api/v1/candidates/me/applications/a-2/progress':()=>json(200,{stage:'REVIEW',history:[{id:2,fromStage:'RECEIVED',stage:'REVIEW',message:'Tu CV está en revisión.',changedAt:'2026-11-20T12:00:00Z'}]}),
+    'POST /api/v1/candidates/me/applications/a-2/progress/read':()=>new Response(null,{status:204}),
+  })
+  render(as('CANDIDATE',<CandidateHome/>))
+  expect(await screen.findByText('Tu CV está en revisión.')).toBeInTheDocument()
+  expect(screen.getByRole('button',{name:'Seguimiento de Analista'})).toHaveAttribute('aria-expanded','true')
+  expect(screen.getByRole('button',{name:'Seguimiento de Desarrollador/a backend Java'})).toHaveAttribute('aria-expanded','false')
+  expect(calls('GET /api/v1/candidates/me/applications/a-1/progress')).toHaveLength(0)
+})
+
+it('explica un aviso cuya postulación ya no está disponible sin abrir otro seguimiento', async () => {
+  window.history.replaceState(null,'','/postulaciones?postulacion=retirada')
+  routes({'GET /api/v1/candidates/me/applications':()=>json(200,[mine()])})
+  render(as('CANDIDATE',<CandidateHome/>))
+  expect(await screen.findByText(/La postulación del aviso ya no está disponible/)).toBeInTheDocument()
+  expect(screen.getByRole('button',{name:'Seguimiento de Desarrollador/a backend Java'})).toHaveAttribute('aria-expanded','false')
 })
 
 describe('ApplyPanel', () => {

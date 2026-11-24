@@ -10,9 +10,9 @@ import { ApplicationJourney } from '@/features/application/application-journey'
 import { stageLabel } from '@/features/application/stage-labels'
 import { formatDate } from '@/features/vacancy/labels'
 import { LoadError, LoadingRows } from '@/features/vacancy/resource-states'
-import { navigate } from '@/lib/router'
+import { navigate, useLocation } from '@/lib/router'
 import { useResource } from '@/lib/use-resource'
-import { useContext, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { cvApi } from '@/features/cv/api'
 import { cn } from '@/lib/cn'
 import { ApplicationUpdatesContext } from '@/features/application/application-updates-context'
@@ -28,9 +28,22 @@ export function CandidateHome() {
   const { state, retry, refresh } = useResource(() => applicationsApi.mine(token), `mias:${token}`, 'No se pudieron cargar tus postulaciones.')
   const updates = useContext(ApplicationUpdatesContext)
   const [filter, setFilter] = useState<Filter>('all')
+  const { params } = useLocation()
+  const selectedId = params.get('postulacion')
+  const currentFilter = selectedId ? 'all' : filter
   const all = state.status === 'ready' ? state.data : []
   const activeCount = all.filter((a) => !finished(a)).length
-  const filtered = all.filter((a) => filter === 'all' || (filter === 'finished' ? finished(a) : !finished(a)))
+  const filtered = all.filter((a) => currentFilter === 'all' || (currentFilter === 'finished' ? finished(a) : !finished(a)))
+  const selectionExists = state.status === 'ready' && state.data.some((a) => a.id === selectedId)
+  useEffect(() => {
+    if (!selectedId || !selectionExists) return
+    const frame = requestAnimationFrame(() => {
+      const row = document.getElementById(`application-${selectedId}`)
+      row?.focus({preventScroll:true})
+      row?.scrollIntoView?.({block:'start',behavior:'auto'})
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [selectedId, selectionExists])
   useRealtimeNotices((notice) => {
     if (notice.type === 'application.stage.changed' || notice.type === 'reconnected') refresh()
   })
@@ -38,6 +51,7 @@ export function CandidateHome() {
   return (
     <div className="app-page">
       <PageHeader title="Mis postulaciones" description="Consulta el avance de tus procesos y las novedades de cada empresa." />
+      {selectedId && state.status === 'ready' && !selectionExists && <p role="status" className="rounded-lg border border-ink-100 bg-white p-3 text-sm text-ink-700">La postulación del aviso ya no está disponible en tu cuenta. Puedes revisar tus otros procesos aquí.</p>}
 
       {state.status === 'loading' && <LoadingRows rows={2} />}
       {state.status === 'error' && (
@@ -51,8 +65,8 @@ export function CandidateHome() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-100 pb-3">
             <div role="group" aria-label="Filtrar postulaciones" className="flex flex-wrap gap-1 rounded-lg bg-white p-1 ring-1 ring-ink-100">
               {([['all', 'Todas', all.length], ['active', 'En curso', activeCount], ['finished', 'Finalizadas', all.length - activeCount]] as const).map(([value, label, count]) =>
-                <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}
-                  className={cn('min-h-10 cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors', filter === value ? 'bg-navy-900 font-semibold text-white' : 'text-ink-700 hover:bg-azure-50')}>
+                <button key={value} aria-pressed={currentFilter === value} onClick={() => { setFilter(value); if(selectedId)navigate('/postulaciones',{replace:true}) }}
+                  className={cn('min-h-10 cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors', currentFilter === value ? 'bg-navy-900 font-semibold text-white' : 'text-ink-700 hover:bg-azure-50')}>
                   {label}{' '}<span className="ml-2 text-xs">{count}</span>
                 </button>)}
             </div>
@@ -63,11 +77,11 @@ export function CandidateHome() {
             action={<Button variant="secondary" size="sm" onClick={() => setFilter('all')}>Ver todas</Button>} /> :
           <ul aria-label="Tus postulaciones" className="divide-y divide-ink-100 overflow-hidden rounded-card border border-ink-100 bg-white shadow-soft">
             {filtered.map((a) => (
-              <li key={a.id}>
+              <li key={a.id} id={`application-${a.id}`} tabIndex={a.id===selectedId?-1:undefined} className={cn('scroll-mt-4',a.id===selectedId&&'bg-azure-50/40')}>
                 {updates?.state.status === 'ready' && updates.state.data.updates.some((u) => u.applicationId === a.id) && (
                   <p className="px-5 pt-4 text-xs font-semibold text-azure-600 sm:px-6">Novedades sin leer en el seguimiento</p>
                 )}
-                <ApplicationRow application={a} token={token} />
+                <ApplicationRow application={a} token={token} selected={a.id===selectedId} />
               </li>
             ))}
           </ul>}
@@ -113,7 +127,7 @@ function EmptyApplications({ token }: { token: string }) {
   </section>
 }
 
-function ApplicationRow({ application: a, token }: { application: MyApplication; token: string }) {
+function ApplicationRow({ application: a, token, selected }: { application: MyApplication; token: string; selected?: boolean }) {
   const open = a.vacancyStatus === 'PUBLISHED'
   const latest = a.milestones?.at(-1)
   const title = <span className="break-words text-base font-semibold leading-6 text-ink-900">{a.vacancyTitle}</span>
@@ -140,7 +154,7 @@ function ApplicationRow({ application: a, token }: { application: MyApplication;
         </p>}
       </div>
     </div>
-    <ApplicationProgressPanel token={token} applicationId={a.id} label={a.vacancyTitle}
+    <ApplicationProgressPanel key={`${a.id}:${!!selected}`} initiallyExpanded={selected} token={token} applicationId={a.id} label={a.vacancyTitle}
       actions={<Button variant="ghost" size="sm" aria-label={`Mensajes de ${a.vacancyTitle}`} onClick={() => navigate(`/mensajes/${a.id}`)}><MessageSquare aria-hidden="true" />Mensajes</Button>} />
   </>
 }

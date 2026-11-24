@@ -23,10 +23,11 @@ type Props = {
   label: string
   onStageChanged?: () => void
   actions?: ReactNode
+  initiallyExpanded?: boolean
 }
 
 export function ApplicationProgressPanel(props: Props) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(props.initiallyExpanded ?? false)
   const id = `progress-${props.applicationId}`
   return (
     <div className="px-5 pb-4 sm:px-6">

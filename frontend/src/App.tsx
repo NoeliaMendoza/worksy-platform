@@ -111,7 +111,7 @@ function Workspace({ user, token, pathname }: { user: AuthUser; token: string; p
       <ApplicationUpdatesContext.Provider value={user.role === 'CANDIDATE' ? updates : null}>
         <InterviewInboxContext.Provider value={user.role !== 'PLATFORM_ADMIN' ? interviews : null}>
           <AppShell {...shell} current={pending.id}>
-            <WorkspaceNotices />
+            <WorkspaceNotices unreadMessages={unread} />
             <ComingSoon section={pending.label} />
           </AppShell>
         </InterviewInboxContext.Provider>
@@ -123,7 +123,7 @@ function Workspace({ user, token, pathname }: { user: AuthUser; token: string; p
     <ApplicationUpdatesContext.Provider value={user.role === 'CANDIDATE' ? updates : null}>
       <InterviewInboxContext.Provider value={user.role !== 'PLATFORM_ADMIN' ? interviews : null}>
         <AppShell {...shell} current={resolved.current}>
-          <WorkspaceNotices />
+          <WorkspaceNotices unreadMessages={unread} />
           <ScreenBoundary><Suspense fallback={<div className="app-page text-sm text-ink-500" role="status">Cargando página…</div>}>{resolved.element}</Suspense></ScreenBoundary>
         </AppShell>
       </InterviewInboxContext.Provider>
