@@ -1,10 +1,11 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '@/App'
 import { AuthContext, type AuthContextValue } from '@/features/auth/auth-context'
 import type { CompanyApplication } from './api'
 import { CandidatesPage } from './candidates-page'
+import { companyApplicationsApi, type CompanyApplicationPage } from './api'
 
 // Datos sintéticos: dominio reservado .test.
 let fetchMock: ReturnType<typeof vi.fn>
@@ -16,6 +17,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.restoreAllMocks()
   window.history.replaceState(null, '', '/')
 })
 
@@ -72,6 +74,40 @@ function renderPage(applicationId?: string) {
 const page = (items: CompanyApplication[], total = items.length, n = 0) => json(200, { items, total, page: n, size: 25 })
 
 describe('CandidatesPage', () => {
+  it('ignora una página antigua si cambian los filtros durante su carga', async () => {
+    let resolveMore!: (value: CompanyApplicationPage) => void
+    const search = vi.spyOn(companyApplicationsApi, 'search').mockImplementation(async (_token, filters, nextPage = 0) => {
+      if (nextPage === 1) return new Promise<CompanyApplicationPage>((resolve) => { resolveMore = resolve })
+      return filters.stage ? {items:[],total:0,page:0,size:25} : {items:[jose],total:2,page:0,size:25}
+    })
+    routes({'GET /api/v1/companies/me/vacancies':()=>json(200,vacancies)})
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button',{name:'Ver más (1 restantes)'}))
+    await user.selectOptions(screen.getByLabelText('Etapa'),'HIRED')
+    expect(await screen.findByText('Nadie coincide con estos filtros')).toBeInTheDocument()
+    await act(async()=>resolveMore({items:[hidden],total:2,page:1,size:25}))
+    expect(screen.getByText('Nadie coincide con estos filtros')).toBeInTheDocument()
+    expect(screen.queryByText('Datos no compartidos')).not.toBeInTheDocument()
+    expect(search.mock.calls.filter((call) => call[2] === 1)).toHaveLength(1)
+    expect(search).toHaveBeenCalledWith('jwt-sintetico', expect.objectContaining({stage:'HIRED'}))
+  })
+
+  it('conserva los resultados si falla la página siguiente y ofrece reintentar', async () => {
+    vi.spyOn(companyApplicationsApi,'search').mockResolvedValueOnce({items:[jose],total:2,page:0,size:25})
+      .mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce({items:[jose,hidden],total:2,page:1,size:25})
+    routes({'GET /api/v1/companies/me/vacancies':()=>json(200,vacancies)})
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button',{name:'Ver más (1 restantes)'}))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Los resultados anteriores siguen disponibles')
+    expect(screen.getByText('José Pérez')).toBeInTheDocument()
+    await user.click(screen.getByRole('button',{name:'Reintentar carga'}))
+    expect(await screen.findByText('Datos no compartidos')).toBeInTheDocument()
+    const list=within(screen.getByRole('region',{name:'Lista de candidatos'})).getByRole('list')
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2)
+  })
+
   it('lista a todas las personas sin mostrar datos de quien no los comparte ni la puntuación', async () => {
     routes({
       'GET /api/v1/companies/me/applications': () => page([hidden, jose]),

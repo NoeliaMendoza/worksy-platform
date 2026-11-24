@@ -8,6 +8,7 @@ import com.plataformaempleo.common.domain.DomainException;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 /**
  * Pantalla "Candidatos": todas las postulaciones de las vacantes de la empresa, con filtros.
@@ -25,7 +26,7 @@ public class CompanyApplicationsService {
         this.query = Objects.requireNonNull(query);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public CompanyApplication.Page search(Actor actor, CompanyApplication.Filter filter, Integer page, Integer size) {
         UUID companyId = actor.requireCompany(Role.COMPANY_ADMIN, Role.RECRUITER);
         int p = page == null ? 0 : page;

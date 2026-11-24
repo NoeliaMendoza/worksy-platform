@@ -34,6 +34,44 @@ import org.springframework.jdbc.core.JdbcTemplate;
 @Import(TestcontainersConfig.class)
 class JobApplicationIntegrationTest {
 
+    @Test
+    void busquedaDeEmpresaPaginadaAislaEmpresasYRespetaConsentimiento() throws Exception {
+        String adminA = companyAdmin("Empresa listado A");
+        String adminB = companyAdmin("Empresa listado B");
+        String vacancyA = publishedVacancy(adminA, "Backend Java listado");
+        String vacancyA2 = publishedVacancy(adminA, "Analista listado");
+        String vacancyB = publishedVacancy(adminB, "Oferta de otra empresa");
+        Candidate ana = candidate(); Candidate otra = candidate();
+        share(ana,true); share(otra,true);
+        String id1 = json.readTree(apply(ana,vacancyA,cvOf(ana)).getBody()).get("id").asText();
+        apply(ana,vacancyA2,cvOf(ana)); apply(otra,vacancyA,cvOf(otra)); apply(otra,vacancyB,cvOf(otra));
+        jdbc.update("update applications set stage='REVIEW' where id=?",UUID.fromString(id1));
+        String base = "/api/v1/companies/me/applications";
+        var first = json.readTree(send(HttpMethod.GET,base+"?size=1",null,adminA).getBody());
+        var second = json.readTree(send(HttpMethod.GET,base+"?size=1&page=1",null,adminA).getBody());
+        assertThat(first.get("total").asInt()).isEqualTo(3);
+        assertThat(first.get("items")).hasSize(1);
+        assertThat(first.get("items").get(0).get("applicationId").asText()).isNotEqualTo(second.get("items").get(0).get("applicationId").asText());
+        assertThat(json.readTree(send(HttpMethod.GET,base+"?vacancyId="+vacancyB,null,adminA).getBody()).get("total").asInt()).isZero();
+        assertThat(json.readTree(send(HttpMethod.GET,base+"?stage=REVIEW",null,adminA).getBody()).get("items").get(0).get("applicationId").asText()).isEqualTo(id1);
+        assertThat(json.readTree(send(HttpMethod.GET,base+"?q="+ana.email(),null,adminA).getBody()).get("total").asInt()).isEqualTo(2);
+        share(ana,false);
+        var hidden = json.readTree(send(HttpMethod.GET,base,null,adminA).getBody());
+        assertThat(hidden.get("total").asInt()).isEqualTo(3);
+        for (JsonNode row : hidden.get("items")) if (!row.get("shared").asBoolean()) {
+            assertThat(row.get("candidateEmail").isNull()).isTrue();
+            assertThat(row.get("stage").isNull()).isTrue();
+            assertThat(row.get("cvId").isNull()).isTrue();
+        }
+        assertThat(json.readTree(send(HttpMethod.GET,base+"?q="+ana.email(),null,adminA).getBody()).get("total").asInt()).isZero();
+        assertThat(json.readTree(send(HttpMethod.GET,base+"?stage=REVIEW",null,adminA).getBody()).get("total").asInt()).isZero();
+        assertThat(send(HttpMethod.GET,base,null,ana.token()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(send(HttpMethod.GET,base,null,null).getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(send(HttpMethod.GET,base+"?size=101",null,adminA).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(send(HttpMethod.GET,base+"?page=-1",null,adminA).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(send(HttpMethod.GET,base+"?stage=INVALID",null,adminA).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
     private static final String PASSWORD = "frase-sintetica-larga";
 
     @Autowired

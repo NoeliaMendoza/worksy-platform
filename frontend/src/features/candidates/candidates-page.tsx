@@ -1,5 +1,5 @@
 import { ArrowLeft, CalendarClock, EyeOff, FileText, LoaderCircle, MessageSquare, SearchX, Users, Video } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AppLink } from '@/components/app-link'
 import { PageHeader } from '@/components/page-header'
 import { StateMessage } from '@/components/state-message'
@@ -51,24 +51,38 @@ export function CandidatesPage({ applicationId }: { applicationId?: string }) {
   const [filters, setFilters] = useState<CandidateFilters>({})
   const [list, setList] = useState<ListState>({ status: 'loading' })
   const [version, setVersion] = useState(0)
+  const [moreError, setMoreError] = useState('')
+  const generation = useRef(0)
+  const loadingMore = useRef(false)
   const vacancies = useResource(() => companyVacancies.list(token), `vacantes-filtro:${token}`, '')
 
   // La búsqueda espera a que se deje de escribir.
   useEffect(() => {
-    const timer = window.setTimeout(() => setFilters((f) => (f.q === text ? f : { ...f, q: text })), SEARCH_DELAY_MS)
+    const timer = window.setTimeout(() => setFilters((f) => ((f.q ?? '') === text ? f : { ...f, q: text })), SEARCH_DELAY_MS)
     return () => window.clearTimeout(timer)
   }, [text])
 
   useEffect(() => {
     let active = true
+    const request = ++generation.current
+    loadingMore.current = false
     companyApplicationsApi.search(token, filters).then(
-      (page) => active && setList({ status: 'ready', items: page.items, total: page.total, page: 0, loadingMore: false }),
+      (page) => { if (active && request === generation.current) { setMoreError(''); setList({ status: 'ready', items: page.items, total: page.total, page: 0, loadingMore: false }) } },
       (err: unknown) => active && setList({ status: 'error', message: errorMessage(err, 'No se pudieron cargar los candidatos.') }),
     )
     return () => {
       active = false
+      generation.current += 1
     }
   }, [token, filters, version])
+
+  useEffect(() => {
+    const refresh = () => setVersion((v) => v + 1)
+    const visible = () => { if (document.visibilityState === 'visible') refresh() }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', visible)
+    return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', visible) }
+  }, [])
 
   // Una etapa o una entrevista cambiada en otra pestaña o por otra persona del equipo.
   useRealtimeNotices((notice) => {
@@ -78,19 +92,28 @@ export function CandidatesPage({ applicationId }: { applicationId?: string }) {
   })
 
   async function loadMore() {
-    if (list.status !== 'ready') return
+    if (list.status !== 'ready' || loadingMore.current) return
+    const request = generation.current
+    loadingMore.current = true
+    setMoreError('')
     setList({ ...list, loadingMore: true })
     try {
       const next = await companyApplicationsApi.search(token, filters, list.page + 1)
+      if (request !== generation.current) return
       setList((current) => current.status === 'ready'
-        ? { status: 'ready', items: [...current.items, ...next.items], total: next.total, page: next.page, loadingMore: false }
+        ? { status: 'ready', items: [...new Map([...current.items, ...next.items].map((item) => [item.applicationId, item])).values()], total: next.total, page: next.page, loadingMore: false }
         : current)
-    } catch {
+    } catch (err) {
+      if (request !== generation.current) return
+      setMoreError(errorMessage(err, 'No se pudieron cargar más postulaciones. Los resultados anteriores siguen disponibles.'))
       setList((current) => (current.status === 'ready' ? { ...current, loadingMore: false } : current))
+    } finally {
+      if (request === generation.current) loadingMore.current = false
     }
   }
 
   const filtering = Boolean(filters.vacancyId || filters.stage || filters.q?.trim())
+  const emptyList = !applicationId && list.status === 'ready' && list.items.length === 0
   const vacancyOptions = vacancies.state.status === 'ready' ? vacancies.state.data.filter((v) => v.status !== 'DRAFT') : []
 
   return (
@@ -103,7 +126,7 @@ export function CandidatesPage({ applicationId }: { applicationId?: string }) {
       </div>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-4">
-        <section aria-label="Lista de candidatos" className={cn('flex min-w-0 flex-col gap-3', applicationId && 'hidden lg:flex')}>
+        <section aria-label="Lista de candidatos" className={cn('flex min-w-0 flex-col gap-3', applicationId && 'hidden lg:flex', emptyList && 'lg:col-span-2')}>
           <div role="search" aria-label="Buscar y filtrar candidatos" className="grid gap-3 rounded-card border border-ink-100 bg-white p-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
             <div className="sm:col-span-2 lg:col-span-1 xl:col-span-2">
               <Field id="buscar-candidatos" label="Nombre, correo o vacante">
@@ -135,6 +158,7 @@ export function CandidatesPage({ applicationId }: { applicationId?: string }) {
           )}
           {list.status === 'ready' && (
             <>
+              <p className="text-xs leading-5 text-ink-700">Cada resultado es una postulación: una persona puede aparecer en varias vacantes. El correo y la etapa solo se buscan si mantiene el permiso de compartir sus datos.</p>
               <p role="status" className="text-sm text-ink-700">
                 {list.total === 1 ? '1 postulación' : `${list.total} postulaciones`}
                 {filtering && ' con estos filtros'}
@@ -159,23 +183,26 @@ export function CandidatesPage({ applicationId }: { applicationId?: string }) {
                 </ul>
               )}
               {list.items.length < list.total && (
+                <>
+                {moreError && <Notice tone="error">{moreError} <button type="button" className="min-h-6 underline" onClick={() => void loadMore()}>Reintentar carga</button></Notice>}
                 <Button variant="secondary" className="self-center" onClick={() => void loadMore()} disabled={list.loadingMore}>
                   {list.loadingMore && <LoaderCircle className="animate-spin" aria-hidden="true" />}
                   Ver más ({list.total - list.items.length} restantes)
                 </Button>
+                </>
               )}
             </>
           )}
         </section>
 
-        <section aria-label="Detalle del candidato" className={cn('min-w-0', !applicationId && 'hidden lg:block')}>
+        {!emptyList && <section aria-label="Detalle del candidato" className={cn('min-w-0', !applicationId && 'hidden lg:block')}>
           {applicationId ? (
             <CandidateDetail key={applicationId} token={token} applicationId={applicationId}
               onChanged={() => setVersion((v) => v + 1)} />
           ) : (
             <StateMessage icon={Users} title="Elige una persona" description="Verás su CV, la etapa, las entrevistas y los mensajes en un solo lugar." className="py-16" />
           )}
-        </section>
+        </section>}
       </div>
     </div>
   )
@@ -225,6 +252,14 @@ type DetailState =
 function CandidateDetail({ token, applicationId, onChanged }: { token: string; applicationId: string; onChanged: () => void }) {
   const [state, setState] = useState<DetailState>({ status: 'loading' })
   const [version, setVersion] = useState(0)
+
+  useEffect(() => {
+    const refresh = () => setVersion((v) => v + 1)
+    const visible = () => { if (document.visibilityState === 'visible') refresh() }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', visible)
+    return () => { window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', visible) }
+  }, [])
 
   useEffect(() => {
     let active = true
