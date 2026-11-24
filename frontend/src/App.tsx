@@ -35,6 +35,7 @@ import type { RankingPreview } from '@/mocks/vacancy-ranking'
 
 const previews: RankingPreview[] = ['listo', 'cargando', 'vacio', 'error']
 const CandidateDashboard = lazy(() => import('@/features/home/candidate-dashboard').then((module) => ({ default: module.CandidateDashboard })))
+const CompanyDashboard = lazy(() => import('@/features/home/company-dashboard').then((module) => ({ default: module.CompanyDashboard })))
 const CompanyVacancyPage = lazy(() => import('@/features/vacancy/company-vacancy-pages').then((module) => ({ default: module.CompanyVacancyPage })))
 const NewVacancyPage = lazy(() => import('@/features/vacancy/company-vacancy-pages').then((module) => ({ default: module.NewVacancyPage })))
 const VacancyRankingPage = lazy(() => import('@/features/ranking/real-ranking-page').then((module) => ({ default: module.RealRankingPage })))
@@ -150,6 +151,7 @@ function pageFor(role: AuthUser['role'], section: string): { current: string; el
   }
   if (first === 'equipo') return { current: 'equipo', element: <TeamPage /> }
   if (first === 'candidatos') return { current: 'candidatos', element: <CandidatesPage applicationId={id} /> }
+  if (first === 'inicio') return { current: 'inicio', element: <CompanyDashboard /> }
   if (first === 'mensajes') return { current: 'mensajes', element: <MessagesPage applicationId={id} /> }
   if (first === '' || first === 'vacantes') {
     const element = !id ? (

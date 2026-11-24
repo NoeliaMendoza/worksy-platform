@@ -93,6 +93,24 @@ describe('RegisterCompanyPage', () => {
 })
 
 describe('TeamPage', () => {
+  it('busca miembros por correo sin distinguir mayúsculas y permite limpiar la búsqueda', async () => {
+    routes({
+      'GET /api/v1/companies/me': () => json(200, company),
+      'GET /api/v1/companies/me/members': () => json(200, [admin, {id:'u-search',email:'seleccion@andina.test',role:'RECRUITER',createdAt:'2026-11-10T00:00:00Z'}]),
+    })
+    const user = userEvent.setup()
+    render(withAuth({role:'RECRUITER'}, <TeamPage />))
+    await screen.findByText('seleccion@andina.test')
+    await user.type(screen.getByLabelText('Buscar por correo'), 'SELECCION')
+    expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.queryByText('admin@andina.test')).not.toBeInTheDocument()
+    await user.type(screen.getByLabelText('Buscar por correo'), 'xyz')
+    expect(screen.getByText('No hay miembros con ese correo')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', {name:'Limpiar búsqueda'}))
+    expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.queryByRole('button', {name:'Enviar invitación'})).not.toBeInTheDocument()
+  })
+
   it('la administración ve su equipo e invita con su token', async () => {
     const recruiter = { id: 'u-2', email: 'recluta@andina.test', role: 'RECRUITER', createdAt: '2026-11-10T00:00:00Z' }
     routes({
@@ -181,13 +199,21 @@ describe('Rutas de la empresa', () => {
     expect(within(nav).getByRole('link', { name: 'Equipo' })).toHaveAttribute('aria-current', 'page')
   })
 
-  it('una sección sin pantalla avisa con claridad', async () => {
+  it('/inicio muestra el resumen de empresa y marca el menú', async () => {
     window.history.replaceState(null, '', '/inicio')
     signedInAs('RECRUITER')
     render(<App />)
-    expect(await screen.findByText('Esta sección todavía no está disponible')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', {level:1,name:'Inicio de empresa'})).toBeInTheDocument()
     const nav = screen.getAllByRole('navigation', { name: 'Principal' })[0]!
     expect(within(nav).getByRole('link', { name: 'Inicio' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('Candidatos ya tiene pantalla propia y no muestra el aviso de sección pendiente', async () => {
+    window.history.replaceState(null, '', '/candidatos')
+    signedInAs('RECRUITER')
+    render(<App />)
+    expect(await screen.findByRole('heading', { level: 1, name: 'Candidatos' })).toBeInTheDocument()
+    expect(screen.queryByText('Esta sección todavía no está disponible')).not.toBeInTheDocument()
   })
 
   it('sin sesión, desde el login se llega al registro de empresa eligiendo el tipo de cuenta', async () => {

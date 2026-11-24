@@ -1,6 +1,8 @@
+import { TableRegion } from '@/components/ui/table-region'
 import { RefreshCw, Search, Users } from 'lucide-react'
 import { useState } from 'react'
 import { StateMessage } from '@/components/state-message'
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,16 +50,11 @@ export function PlatformUsersPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
-      <header>
-        <h1 className="text-4xl leading-[1.1] font-light tracking-tight text-navy-900 sm:text-5xl">
-          Usuarios de <span className="font-semibold">Worksy</span>
-        </h1>
-        <p className="mt-3 max-w-xl text-base text-ink-700">Consulta las cuentas activas, sus roles y las empresas a las que pertenecen.</p>
-      </header>
+    <div className="app-page">
+      <PageHeader title="Usuarios de Worksy" description="Consulta las cuentas activas, sus roles y las empresas a las que pertenecen." />
 
       <section aria-label="Usuarios de la plataforma" className="flex flex-col gap-4">
-        <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); applyFilters() }}>
+        <form className="flex flex-col gap-3 rounded-card border border-ink-100 bg-white p-4" onSubmit={(event) => { event.preventDefault(); applyFilters() }}>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_16rem]">
             <div className="flex flex-col gap-2">
               <label htmlFor="buscar-usuario" className="text-sm font-semibold text-ink-900">Buscar por correo o empresa</label>
@@ -67,7 +64,7 @@ export function PlatformUsersPage() {
             <div className="flex flex-col gap-2">
               <label htmlFor="rol-usuario" className="text-sm font-semibold text-ink-900">Rol</label>
               <select id="rol-usuario" value={draftRole} onChange={(event) => setDraftRole(event.target.value as Role | '')}
-                className="h-12 w-full rounded-2xl bg-white px-4 text-base text-ink-900 ring-1 ring-ink-300 ring-inset focus-visible:ring-2 focus-visible:ring-azure-500 focus-visible:outline-none">
+                className="h-10 w-full rounded-md bg-white px-3 text-base sm:text-sm text-ink-900 ring-1 ring-ink-300 ring-inset focus-visible:ring-2 focus-visible:ring-azure-500 focus-visible:outline-none">
                 <option value="">Todos los roles</option>
                 {roles.map((option) => <option key={option} value={option}>{roleLabel[option]}</option>)}
               </select>
@@ -97,8 +94,8 @@ export function PlatformUsersPage() {
                 description={filtered ? 'Prueba con otro correo, empresa o rol.' : 'Las cuentas activas aparecerán aquí cuando se registren.'}
                 action={filtered ? <Button variant="secondary" onClick={clearFilters}>Ver todos los usuarios</Button> : undefined} />
             ) : (
-              <div role="region" aria-label="Listado de usuarios" tabIndex={0} className="overflow-x-auto rounded-card bg-white shadow-soft">
-                <table className="w-full text-left text-sm">
+              <TableRegion label="Listado de usuarios">
+                <table className="w-full min-w-[48rem] text-left text-sm">
                   <caption className="sr-only">Cuentas activas, de la más reciente a la más antigua, con rol, empresa y fecha de registro.</caption>
                   <thead className="border-b border-ink-100 bg-azure-50 text-ink-700">
                     <tr>
@@ -111,18 +108,18 @@ export function PlatformUsersPage() {
                   <tbody className="divide-y divide-ink-100">
                     {state.data.items.map((user) => (
                       <tr key={user.id}>
-                        <th scope="row" className="min-w-48 px-4 py-4 font-semibold text-ink-900">
+                        <th scope="row" className="min-w-48 px-4 py-3 font-semibold text-ink-900">
                           <span className="break-all">{user.email}</span>
                           {user.id === currentUserId && <Badge tone="azure" className="ml-2">Tu cuenta</Badge>}
                         </th>
-                        <td className="px-4 py-4"><Badge>{roleLabel[user.role]}</Badge></td>
-                        <td className="px-4 py-4 text-ink-700">{user.companyName ?? 'Sin empresa'}</td>
-                        <td className="px-4 py-4 whitespace-nowrap text-ink-700">{date.format(new Date(user.createdAt))}</td>
+                        <td className="px-4 py-3"><Badge>{roleLabel[user.role]}</Badge></td>
+                        <td className="min-w-48 px-4 py-3 text-ink-700">{user.companyName ?? 'Sin empresa'}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-ink-700">{date.format(new Date(user.createdAt))}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </TableRegion>
             )}
             {state.data.total > 0 && (
               <nav aria-label="Páginas de usuarios" className="flex flex-wrap items-center justify-between gap-3">

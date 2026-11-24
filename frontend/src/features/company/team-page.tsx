@@ -1,6 +1,7 @@
 import { LoaderCircle, MailPlus, ServerCrash, UserRound } from 'lucide-react'
 import { useCallback, useEffect, useId, useState, type FormEvent } from 'react'
 import { StateMessage } from '@/components/state-message'
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/field'
@@ -28,6 +29,8 @@ export function TeamPage() {
   const isAdmin = auth.status === 'authenticated' && auth.user.role === 'COMPANY_ADMIN'
   const [load, setLoad] = useState<Load>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const [query, setQuery] = useState('')
+  const visibleMembers = load.status === 'ready' ? load.members.filter((m) => m.email.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())) : []
 
   useEffect(() => {
     let active = true
@@ -46,15 +49,8 @@ export function TeamPage() {
   }, [])
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
-      <header>
-        <h1 className="text-4xl leading-[1.1] font-light tracking-tight text-navy-900 sm:text-5xl">
-          Tu <span className="font-semibold">equipo</span>
-        </h1>
-        <p className="mt-3 text-base text-ink-700">
-          {load.status === 'ready' ? `Personas de ${load.company.name} que usan Worksy.` : 'Personas de tu empresa que usan Worksy.'}
-        </p>
-      </header>
+    <div className="app-page">
+      <PageHeader title="Tu equipo" description={load.status === 'ready' ? `Personas de ${load.company.name} que usan Worksy.` : 'Personas de tu empresa que usan Worksy.'} />
 
       <p role="status" aria-live="polite" className="sr-only">
         {load.status === 'loading' ? 'Cargando el equipo.' : ''}
@@ -92,25 +88,28 @@ export function TeamPage() {
           )}
 
           <section aria-labelledby="miembros">
-            <h2 id="miembros" className="text-lg font-semibold text-ink-900">
+            <h2 id="miembros" className="text-base font-semibold text-ink-900">
               Miembros <span className="font-normal text-ink-500">({load.members.length})</span>
             </h2>
-            <ul className="mt-3 flex flex-col divide-y divide-ink-100 rounded-card bg-white shadow-soft">
-              {load.members.map((m) => (
-                <li key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 p-4 sm:px-5">
+            <div className="mt-3 rounded-card border border-ink-100 bg-white p-4"><Field id="buscar-miembro" label="Buscar por correo"><Input id="buscar-miembro" type="search" maxLength={254} value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Correo de un miembro del equipo" /></Field></div>
+            <p role="status" className="mt-3 text-xs text-ink-500">{visibleMembers.length} de {load.members.length} miembros</p>
+            {visibleMembers.length === 0 ? <StateMessage icon={UserRound} title={query.trim() ? 'No hay miembros con ese correo' : 'No hay miembros en el equipo'} description={query.trim() ? 'Prueba otra parte del correo o limpia la búsqueda.' : 'Los miembros de la empresa aparecerán aquí.'}
+              action={query.trim() ? <Button variant="secondary" size="sm" onClick={() => setQuery('')}>Limpiar búsqueda</Button> : undefined} /> : <ul className="mt-3 flex flex-col divide-y divide-ink-100 rounded-card border border-ink-100 bg-white shadow-soft">
+              {visibleMembers.map((m) => (
+                <li key={m.id} className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-2 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
                   <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-2xl bg-azure-100 text-navy-700">
                     <UserRound className="size-4" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink-900" title={m.email}>
+                    <p className="break-all text-sm font-semibold text-ink-900">
                       {m.email}
                     </p>
-                    <p className="text-xs text-ink-500">Desde el {dateFormat.format(new Date(m.createdAt))}</p>
+                    <p className="mt-1 text-xs leading-5 text-ink-500">Desde el {dateFormat.format(new Date(m.createdAt))}</p>
                   </div>
-                  <Badge tone={m.role === 'COMPANY_ADMIN' ? 'azure' : 'neutral'}>{roleLabel[m.role]}</Badge>
+                  <Badge className="col-start-2 justify-self-start sm:col-start-auto" tone={m.role === 'COMPANY_ADMIN' ? 'azure' : 'neutral'}>{roleLabel[m.role]}</Badge>
                 </li>
               ))}
-            </ul>
+            </ul>}
           </section>
         </>
       )}
@@ -147,8 +146,8 @@ function InviteForm({ token, onInvited }: { token: string; onInvited: (m: Member
   }
 
   return (
-    <section aria-labelledby="invitar" className="rounded-card bg-white p-5 shadow-soft sm:p-6">
-      <h2 id="invitar" className="flex items-center gap-2 text-lg font-semibold text-ink-900">
+    <section aria-labelledby="invitar" className="rounded-card border border-ink-100 bg-white p-4 shadow-soft">
+      <h2 id="invitar" className="flex items-center gap-2 text-base font-semibold text-ink-900">
         <MailPlus className="size-5 text-navy-700" aria-hidden="true" />
         Invitar a un reclutador
       </h2>
@@ -175,7 +174,7 @@ function InviteForm({ token, onInvited }: { token: string; onInvited: (m: Member
             readOnly={sending}
           />
         </Field>
-        <Button type="submit" className="h-12 sm:mt-7" disabled={sending}>
+        <Button type="submit" className="sm:mt-7" disabled={sending}>
           {sending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
           {sending ? 'Enviando…' : 'Enviar invitación'}
         </Button>

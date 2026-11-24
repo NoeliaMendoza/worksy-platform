@@ -1,6 +1,8 @@
+import { TableRegion } from '@/components/ui/table-region'
 import { RefreshCw, Search, ShieldCheck } from 'lucide-react'
 import { useState } from 'react'
 import { StateMessage } from '@/components/state-message'
+import { PageHeader } from '@/components/page-header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,17 +48,12 @@ export function PlatformAuditPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
-      <header>
-        <h1 className="text-4xl leading-[1.1] font-light tracking-tight text-navy-900 sm:text-5xl">
-          Auditoría de <span className="font-semibold">Worksy</span>
-        </h1>
-        <p className="mt-3 max-w-2xl text-base text-ink-700">Registro de empresas, cambios de vacantes, solicitudes de análisis y decisiones humanas.</p>
-        <p className="mt-2 text-sm text-ink-500">El registro comienza al instalar esta versión. No incluye acciones anteriores.</p>
-      </header>
+    <div className="app-page">
+      <PageHeader title="Auditoría de Worksy" description="Registro de empresas, cambios de vacantes, solicitudes de análisis y decisiones humanas." />
+      <p className="text-xs leading-5 text-ink-500">El registro comienza al instalar esta versión. No incluye acciones anteriores.</p>
 
       <section aria-label="Acciones registradas" className="flex flex-col gap-4">
-        <form className="flex flex-col gap-3" onSubmit={(event) => { event.preventDefault(); applyFilters() }}>
+        <form className="flex flex-col gap-3 rounded-card border border-ink-100 bg-white p-4" onSubmit={(event) => { event.preventDefault(); applyFilters() }}>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_18rem]">
             <div className="flex flex-col gap-2">
               <label htmlFor="buscar-auditoria" className="text-sm font-semibold text-ink-900">Buscar por autor, empresa o recurso</label>
@@ -66,7 +63,7 @@ export function PlatformAuditPage() {
             <div className="flex flex-col gap-2">
               <label htmlFor="accion-auditoria" className="text-sm font-semibold text-ink-900">Acción</label>
               <select id="accion-auditoria" value={draftAction} onChange={(event) => setDraftAction(event.target.value as AuditAction | '')}
-                className="h-12 w-full rounded-2xl bg-white px-4 text-base text-ink-900 ring-1 ring-ink-300 ring-inset focus-visible:ring-2 focus-visible:ring-azure-500 focus-visible:outline-none">
+                className="h-10 w-full rounded-md bg-white px-3 text-base sm:text-sm text-ink-900 ring-1 ring-ink-300 ring-inset focus-visible:ring-2 focus-visible:ring-azure-500 focus-visible:outline-none">
                 <option value="">Todas las acciones</option>
                 {actions.map((option) => <option key={option} value={option}>{auditActionLabel[option]}</option>)}
               </select>
@@ -96,8 +93,8 @@ export function PlatformAuditPage() {
                 description={filtered ? 'Prueba con otro autor, empresa, recurso o acción.' : 'Las nuevas acciones cubiertas por la auditoría aparecerán aquí.'}
                 action={filtered ? <Button variant="secondary" onClick={clearFilters}>Ver todas las acciones</Button> : undefined} />
             ) : (
-              <div role="region" aria-label="Registro de auditoría" tabIndex={0} className="overflow-x-auto rounded-card bg-white shadow-soft">
-                <table className="w-full text-left text-sm">
+              <TableRegion label="Registro de auditoría">
+                <table className="w-full min-w-[56rem] text-left text-sm">
                   <caption className="sr-only">Acciones registradas, de la más reciente a la más antigua.</caption>
                   <thead className="border-b border-ink-100 bg-azure-50 text-ink-700">
                     <tr>
@@ -111,17 +108,17 @@ export function PlatformAuditPage() {
                   <tbody className="divide-y divide-ink-100">
                     {state.data.items.map((entry) => (
                       <tr key={entry.id}>
-                        <td className="px-4 py-4 whitespace-nowrap text-ink-700">{date.format(new Date(entry.occurredAt))}</td>
-                        <td className="px-4 py-4">
-                          <p className="break-all font-semibold text-ink-900">{entry.actorEmail}</p>
+                        <td className="px-4 py-3 whitespace-nowrap text-ink-700">{date.format(new Date(entry.occurredAt))}</td>
+                        <td className="min-w-48 px-4 py-3">
+                          <p className="break-words font-semibold text-ink-900">{entry.actorEmail}</p>
                           <p className="mt-1 text-xs text-ink-500">{roleLabel[entry.actorRole]}</p>
                         </td>
-                        <td className="px-4 py-4 text-ink-700">{entry.companyName ?? 'Sin empresa'}</td>
-                        <td className="px-4 py-4"><Badge>{auditActionLabel[entry.action]}</Badge></td>
-                        <td className="min-w-48 px-4 py-4 text-ink-900">
+                        <td className="min-w-48 px-4 py-3 text-ink-700">{entry.companyName ?? 'Sin empresa'}</td>
+                        <td className="px-4 py-3"><Badge>{auditActionLabel[entry.action]}</Badge></td>
+                        <td className="min-w-48 px-4 py-3 text-ink-900">
                           <p>{entry.targetLabel}</p>
                           <details className="mt-1 text-xs text-ink-500">
-                            <summary className="cursor-pointer">Identificar recurso</summary>
+                            <summary className="min-h-6 cursor-pointer">Identificar recurso</summary>
                             <p className="mt-1 break-all font-mono">{entry.targetId}</p>
                           </details>
                         </td>
@@ -129,7 +126,7 @@ export function PlatformAuditPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </TableRegion>
             )}
             {state.data.total > 0 && (
               <nav aria-label="Páginas de auditoría" className="flex flex-wrap items-center justify-between gap-3">

@@ -1,6 +1,8 @@
+import { TableRegion } from '@/components/ui/table-region'
 import { Building2, RefreshCw, Search } from 'lucide-react'
 import { useState } from 'react'
 import { StateMessage } from '@/components/state-message'
+import { PageHeader } from '@/components/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/features/auth/auth-context'
@@ -31,22 +33,17 @@ export function PlatformAdminHome() {
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-8 px-4 py-6 sm:px-8 sm:py-10">
-      <header>
-        <h1 className="text-4xl leading-[1.1] font-light tracking-tight text-navy-900 sm:text-5xl">
-          Administración de <span className="font-semibold">Worksy</span>
-        </h1>
-        <p className="mt-3 max-w-xl text-base text-ink-700">Empresas registradas, sus equipos y la actividad de sus vacantes.</p>
-      </header>
+    <div className="app-page">
+      <PageHeader title="Administración de Worksy" description="Empresas registradas, sus equipos y la actividad de sus vacantes." />
 
       <section aria-labelledby="empresas-plataforma" className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="empresas-plataforma" className="text-2xl font-semibold text-navy-900">Empresas</h2>
+          <h2 id="empresas-plataforma" className="text-base font-semibold text-navy-900">Empresas</h2>
           <Button variant="secondary" onClick={retry} disabled={state.status === 'loading'}>
             <RefreshCw aria-hidden="true" /> Actualizar empresas
           </Button>
         </div>
-        <form className="flex flex-col gap-2" onSubmit={(event) => {
+        <form className="flex flex-col gap-2 rounded-card border border-ink-100 bg-white p-4" onSubmit={(event) => {
           event.preventDefault()
           setPage(0)
           setQuery(draft.trim())
@@ -76,8 +73,8 @@ export function PlatformAdminHome() {
                 action={query ? <Button variant="secondary" onClick={clearSearch}>Ver todas las empresas</Button> : undefined} />
             ) : (
               <>
-                <div role="region" aria-label="Listado de empresas" tabIndex={0} className="overflow-x-auto rounded-card bg-white shadow-soft">
-                  <table className="w-full text-left text-sm">
+                <TableRegion label="Listado de empresas">
+                  <table className="w-full min-w-[48rem] text-left text-sm">
                     <caption className="sr-only">Empresas registradas, de la más reciente a la más antigua, con sus equipos y vacantes.</caption>
                     <thead className="border-b border-ink-100 bg-azure-50 text-ink-700">
                       <tr>
@@ -92,17 +89,17 @@ export function PlatformAdminHome() {
                     <tbody className="divide-y divide-ink-100">
                       {state.data.items.map((company) => (
                         <tr key={company.id}>
-                          <th scope="row" className="min-w-48 px-4 py-4 font-semibold text-ink-900">{company.name}</th>
-                          <td className="px-4 py-4 whitespace-nowrap text-ink-700">{date.format(new Date(company.createdAt))}</td>
-                          <td className="px-4 py-4 text-right tabular-nums">{number.format(company.administrators)}</td>
-                          <td className="px-4 py-4 text-right tabular-nums">{number.format(company.recruiters)}</td>
-                          <td className="px-4 py-4 text-right tabular-nums">{number.format(company.vacancies)}</td>
-                          <td className="px-4 py-4 text-right tabular-nums">{number.format(company.publishedVacancies)}</td>
+                          <th scope="row" className="min-w-48 px-4 py-3 font-semibold text-ink-900">{company.name}</th>
+                          <td className="px-4 py-3 whitespace-nowrap text-ink-700">{date.format(new Date(company.createdAt))}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{number.format(company.administrators)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{number.format(company.recruiters)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{number.format(company.vacancies)}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{number.format(company.publishedVacancies)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </TableRegion>
                 <p className="text-xs text-ink-500">El equipo incluye cuentas activas. El total de vacantes incluye borradores, publicadas y cerradas.</p>
               </>
             )}
