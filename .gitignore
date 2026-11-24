@@ -23,6 +23,12 @@ node_modules/
 dist/
 coverage/
 
+# Documentación local y resultados de revisión visual
+/docs/
+.playwright-mcp/
+/playwright-report/
+/test-results/
+
 # IDE y sistema
 .idea/
 *.iml
