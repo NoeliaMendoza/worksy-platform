@@ -33,6 +33,9 @@ worksy:
       port: ${RABBITMQ_STOMP_PORT:61613}
       login: ${RABBITMQ_USER:empleo}
       passcode: ${RABBITMQ_PASSWORD:}
+      virtual-host: ${RABBITMQ_VHOST:/}
+    # Cada cuánto se cierran las conexiones cuyo token de acceso ya venció.
+    session-check-ms: 5000
 
 management:
   endpoints:
