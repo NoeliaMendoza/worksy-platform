@@ -91,7 +91,7 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
             return HttpStatus.NOT_FOUND;
         }
         if (code.endsWith(".taken") || code.endsWith(".duplicate") || code.endsWith(".in-use")
-                || code.equals("application.stage.conflict") || code.equals("interview.conflict")) {
+                || code.equals("application.stage.conflict") || code.equals("interview.conflict") || code.equals("interview.overlap")) {
             return HttpStatus.CONFLICT;
         }
         if (code.endsWith(".too-large")) {

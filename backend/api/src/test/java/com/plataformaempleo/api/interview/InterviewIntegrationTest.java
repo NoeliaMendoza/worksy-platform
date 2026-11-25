@@ -78,17 +78,192 @@ class InterviewIntegrationTest {
         String path = "/api/v1/interviews/" + id;
         String foreignAdmin = company();
         assertThat(send(HttpMethod.GET, path + "/history", null, foreignAdmin).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        assertThat(send(HttpMethod.POST, path + "/cancel", Map.of("expectedVersion", 0), f.candidate()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
-        assertThat(send(HttpMethod.POST, path + "/cancel", Map.of("expectedVersion", 0), foreignAdmin).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(send(HttpMethod.POST, path + "/cancel", Map.of("expectedVersion", 0, "reason", "Motivo sintético"), f.candidate()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(send(HttpMethod.POST, path + "/cancel", Map.of("expectedVersion", 0, "reason", "Motivo sintético"), foreignAdmin).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         send(HttpMethod.PUT, "/api/v1/candidates/me/consents", Map.of("shareWithRecruiters", false, "githubLink", false), f.candidate());
         assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews", null, f.admin())).get("items")).isEmpty();
         assertThat(send(HttpMethod.PUT, path, Map.of("expectedVersion", 0, "details", details(2)), f.admin()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(send(HttpMethod.POST, path + "/read", Map.of("expectedVersion", 0), f.candidate()).getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
         send(HttpMethod.PUT, "/api/v1/candidates/me/consents", Map.of("shareWithRecruiters", true, "githubLink", false), f.candidate());
-        assertThat(send(HttpMethod.POST, path + "/cancel", Map.of("expectedVersion", 0), f.admin()).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(send(HttpMethod.POST, path + "/cancel", Map.of("expectedVersion", 0, "reason", "Motivo sintético"), f.admin()).getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(unread(f.candidate())).isEqualTo(1);
-        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews?view=history", null, f.candidate())).get("items")).hasSize(1);
+        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews?view=cancelled", null, f.candidate())).get("items")).hasSize(1);
+        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews?view=history", null, f.candidate())).get("items")).isEmpty();
         assertThat(send(HttpMethod.POST, path + "/response", Map.of("expectedVersion", 1, "status", "CONFIRMED"), f.candidate()).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void respuestasRepetidasSonIdempotentesYElMensajeNoQuitaLaConfirmacion() throws Exception {
+        Fixture f = fixture();
+        UUID id = schedule(f, details(2));
+        String path = "/api/v1/interviews/" + id;
+        var confirm = Map.of("expectedVersion", 0, "status", "CONFIRMED");
+        assertThat(send(HttpMethod.POST, path + "/response", confirm, f.candidate()).getStatusCode()).isEqualTo(HttpStatus.OK);
+        // E1: la segunda confirmación (doble clic u otro dispositivo, con la versión vieja) no es un error ni un aviso nuevo.
+        var again = send(HttpMethod.POST, path + "/response", confirm, f.candidate());
+        assertThat(again.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(tree(again).get("status").asText()).isEqualTo("CONFIRMED");
+        assertThat(events(id)).isEqualTo(2);
+
+        // E8: cambiar solo el mensaje conserva la confirmación; cambiar el lugar pide confirmar de nuevo.
+        Map<String, Object> noteOnly = new java.util.HashMap<>(details(2));
+        noteOnly.put("startsAt", tree(send(HttpMethod.GET, path, null, f.admin())).get("interview").get("startsAt").asText());
+        noteOnly.put("note", "Otro mensaje sintético");
+        assertThat(status(send(HttpMethod.PUT, path, Map.of("expectedVersion", 1, "details", noteOnly), f.admin()))).isEqualTo("CONFIRMED");
+        Map<String, Object> moved = new java.util.HashMap<>(noteOnly);
+        moved.put("place", "https://meet.example.test/otra-sala");
+        assertThat(status(send(HttpMethod.PUT, path, Map.of("expectedVersion", 2, "details", moved, "reason", "Cambió la sala"), f.admin()))).isEqualTo("INVITED");
+        assertThat(status(send(HttpMethod.POST, path + "/response", Map.of("expectedVersion", 3, "status", "CONFIRMED"), f.candidate()))).isEqualTo("CONFIRMED");
+
+        // Tras confirmar, el candidato todavía puede avisar que no puede asistir, con motivo.
+        assertThat(status(send(HttpMethod.POST, path + "/response", Map.of("expectedVersion", 4, "status", "DECLINED", "reason", "Me enfermé"), f.candidate()))).isEqualTo("DECLINED");
+        // E7: después, la empresa puede proponer otra hora.
+        Map<String, Object> later = new java.util.HashMap<>(moved);
+        later.put("startsAt", Instant.now().plus(4, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS).toString());
+        assertThat(status(send(HttpMethod.PUT, path, Map.of("expectedVersion", 5, "details", later), f.admin()))).isEqualTo("INVITED");
+
+        // E11: el historial dice de qué lado fue cada cambio y su motivo, sin identificar personas.
+        JsonNode history = tree(send(HttpMethod.GET, path + "/history", null, f.candidate()));
+        assertThat(history).hasSize(7);
+        assertThat(history.get(1).get("actor").asText()).isEqualTo("CANDIDATE");
+        assertThat(history.get(3).get("reason").asText()).isEqualTo("Cambió la sala");
+        assertThat(history.get(3).get("placeChanged").asBoolean()).isTrue();
+        assertThat(history.get(6).get("actor").asText()).isEqualTo("COMPANY");
+        assertThat(history.toString()).doesNotContain("changedBy", f.applicationId());
+
+        // E4: con el proceso cerrado el candidato ya no puede confirmar.
+        jdbc.update("update applications set stage = 'REJECTED' where id = ?", UUID.fromString(f.applicationId()));
+        var closed = send(HttpMethod.POST, path + "/response", Map.of("expectedVersion", 6, "status", "CONFIRMED"), f.candidate());
+        assertThat(closed.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(tree(closed).get("code").asText()).isEqualTo("interview.closed");
+    }
+
+    @Test
+    void propuestaDeOtraHoraUnaSolaAbiertaYLaEmpresaLaAceptaOLaRechaza() throws Exception {
+        Fixture f = fixture();
+        UUID id = schedule(f, details(3));
+        String path = "/api/v1/interviews/" + id;
+        String slotA = Instant.now().plus(5, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS).toString();
+        String slotB = Instant.now().plus(6, ChronoUnit.DAYS).truncatedTo(ChronoUnit.SECONDS).toString();
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        // Dos propuestas distintas a la vez: solo una queda abierta.
+        var one = CompletableFuture.supplyAsync(() -> send(HttpMethod.POST, path + "/change-requests",
+                Map.of("id", first, "expectedVersion", 0, "reason", "Tengo un examen", "slots", List.of(slotA, slotB)), f.candidate()));
+        var two = CompletableFuture.supplyAsync(() -> send(HttpMethod.POST, path + "/change-requests",
+                Map.of("id", second, "expectedVersion", 0, "reason", "Tengo un examen", "slots", List.of(slotA)), f.candidate()));
+        assertThat(List.of(one.get().getStatusCode().value(), two.get().getStatusCode().value())).containsExactlyInAnyOrder(200, 409);
+        assertThat(jdbc.queryForObject("select count(*) from interview_change_requests where interview_id = ? and status = 'OPEN'", Integer.class, id)).isEqualTo(1);
+        UUID open = jdbc.queryForObject("select id from interview_change_requests where interview_id = ? and status = 'OPEN'", UUID.class, id);
+
+        JsonNode seen = tree(send(HttpMethod.GET, path, null, f.admin()));
+        assertThat(seen.get("changeRequest").get("reason").asText()).isEqualTo("Tengo un examen");
+        assertThat(seen.get("interview").get("status").asText()).isEqualTo("INVITED");
+        assertThat(seen.get("unread").asBoolean()).isTrue();
+        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews/summary", null, f.admin())).get("counts").get("changeRequests").asLong()).isEqualTo(1);
+        // E10: el candidato también la consulta por id; otra persona no.
+        assertThat(send(HttpMethod.GET, path, null, f.candidate()).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(send(HttpMethod.GET, path, null, f.other()).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(tree(send(HttpMethod.GET, path, null, f.candidate())).get("candidateEmail").isNull()).isTrue();
+        // Archivo .ics: solo para quien participa, sin caché y con la versión actual como secuencia.
+        var ics = send(HttpMethod.GET, path + "/calendar", null, f.candidate());
+        assertThat(ics.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(ics.getHeaders().getContentType().toString()).startsWith("text/calendar");
+        assertThat(ics.getHeaders().getContentDisposition().getFilename()).isEqualTo("entrevista-worksy.ics");
+        assertThat(ics.getHeaders().getCacheControl()).contains("no-store");
+        assertThat(ics.getBody()).contains("UID:" + id + "@worksy", "SEQUENCE:" + seen.get("interview").get("version").asInt());
+        assertThat(send(HttpMethod.GET, path + "/calendar", null, f.other()).getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+
+        int version = seen.get("interview").get("version").asInt();
+        // Aceptar cambia la hora y deja la cita confirmada; la propuesta se cierra.
+        JsonNode accepted = tree(send(HttpMethod.POST, path + "/change-requests/accept", Map.of("requestId", open, "expectedVersion", version, "slot", 0), f.admin()));
+        assertThat(accepted.get("status").asText()).isEqualTo("CONFIRMED");
+        assertThat(Instant.parse(accepted.get("startsAt").asText())).isEqualTo(Instant.parse(slotA));
+        assertThat(send(HttpMethod.POST, path + "/change-requests/accept", Map.of("requestId", open, "expectedVersion", version + 1, "slot", 0), f.admin())
+                .getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+
+        // Nueva propuesta, que la empresa rechaza manteniendo la hora.
+        UUID third = UUID.randomUUID();
+        int v = accepted.get("version").asInt();
+        assertThat(send(HttpMethod.POST, path + "/change-requests", Map.of("id", third, "expectedVersion", v, "reason", "Otro motivo", "slots", List.of(slotB)), f.candidate())
+                .getStatusCode()).isEqualTo(HttpStatus.OK);
+        // Reenviar la misma propuesta no crea otra.
+        assertThat(send(HttpMethod.POST, path + "/change-requests", Map.of("id", third, "expectedVersion", v, "reason", "Otro motivo", "slots", List.of(slotB)), f.candidate())
+                .getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode kept = tree(send(HttpMethod.POST, path + "/change-requests/reject", Map.of("requestId", third, "expectedVersion", v + 1, "reason", "No tenemos esa hora"), f.admin()));
+        assertThat(kept.get("status").asText()).isEqualTo("CONFIRMED");
+        assertThat(jdbc.queryForObject("select status from interview_change_requests where id = ?", String.class, third)).isEqualTo("REJECTED");
+        assertThat(send(HttpMethod.POST, path + "/change-requests/accept", Map.of("requestId", third, "expectedVersion", v + 2, "slot", 0), f.candidate())
+                .getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void bloqueaCrucesDeLaMismaPostulacionYAvisaLosDelResponsable() throws Exception {
+        Fixture f = fixture();
+        Map<String, Object> at = details(7);
+        UUID id = schedule(f, at);
+        // E3: otra cita de la misma postulación a la misma hora no se agenda.
+        var overlapping = send(HttpMethod.POST, "/api/v1/interviews", Map.of("id", UUID.randomUUID(), "applicationId", f.applicationId(), "details", at), f.admin());
+        assertThat(overlapping.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(tree(overlapping).get("code").asText()).isEqualTo("interview.overlap");
+        // Quien agenda ve sus otras citas que se cruzan (aviso), y no las suyas al excluirla.
+        String start = (String) at.get("startsAt");
+        JsonNode warn = tree(send(HttpMethod.GET, "/api/v1/interviews/overlaps?startsAt=" + start + "&durationMinutes=45", null, f.admin()));
+        assertThat(warn).hasSize(1);
+        assertThat(warn.get(0).get("interviewId").asText()).isEqualTo(id.toString());
+        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews/overlaps?startsAt=" + start + "&durationMinutes=45&exclude=" + id, null, f.admin()))).isEmpty();
+        assertThat(send(HttpMethod.GET, "/api/v1/interviews/overlaps?startsAt=" + start + "&durationMinutes=45", null, f.candidate()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews?view=upcoming&mine=true", null, f.admin())).get("items")).hasSize(1);
+        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews?view=pending", null, f.candidate())).get("items")).hasSize(1);
+
+        // Calendario: rango acotado.
+        Instant from = Instant.now();
+        JsonNode range = tree(send(HttpMethod.GET, "/api/v1/interviews?view=range&from=" + from + "&to=" + from.plus(14, ChronoUnit.DAYS), null, f.candidate()));
+        assertThat(range.get("items")).hasSize(1);
+        assertThat(send(HttpMethod.GET, "/api/v1/interviews?view=range&from=" + from + "&to=" + from.plus(60, ChronoUnit.DAYS), null, f.candidate())
+                .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void elResultadoSeRegistraDespuesDeLaHoraYLaInvitacionSinRespuestaQuedaVencida() throws Exception {
+        Fixture f = fixture();
+        UUID confirmed = schedule(f, details(1));
+        UUID unanswered = schedule(f, details(2));
+        send(HttpMethod.POST, "/api/v1/interviews/" + confirmed + "/response", Map.of("expectedVersion", 0, "status", "CONFIRMED"), f.candidate());
+        String outcome = "/api/v1/interviews/" + confirmed + "/outcome";
+        assertThat(send(HttpMethod.POST, outcome, Map.of("expectedVersion", 1, "outcome", "COMPLETED"), f.admin()).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        // Simula que ambas citas ya empezaron.
+        jdbc.update("update interviews set starts_at = now() - interval '2 hours' where id in (?, ?)", confirmed, unanswered);
+        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews/" + unanswered, null, f.candidate())).get("phase").asText()).isEqualTo("EXPIRED");
+        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews/" + confirmed, null, f.admin())).get("phase").asText()).isEqualTo("AWAITING_OUTCOME");
+        JsonNode counts = tree(send(HttpMethod.GET, "/api/v1/interviews/summary", null, f.admin())).get("counts");
+        assertThat(counts.get("awaitingOutcome").asLong()).isEqualTo(1);
+        assertThat(counts.get("expired").asLong()).isEqualTo(1);
+        assertThat(send(HttpMethod.POST, outcome, Map.of("expectedVersion", 1, "outcome", "NO_SHOW"), f.candidate()).getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        assertThat(status(send(HttpMethod.POST, outcome, Map.of("expectedVersion", 1, "outcome", "NO_SHOW"), f.admin()))).isEqualTo("NO_SHOW");
+        assertThat(status(send(HttpMethod.POST, outcome, Map.of("expectedVersion", 1, "outcome", "NO_SHOW"), f.admin()))).isEqualTo("NO_SHOW");
+        assertThat(status(send(HttpMethod.POST, outcome, Map.of("expectedVersion", 2, "outcome", "COMPLETED"), f.admin()))).isEqualTo("COMPLETED");
+        // Registrar el resultado no cambia la etapa del proceso.
+        assertThat(jdbc.queryForObject("select stage from applications where id = ?", String.class, UUID.fromString(f.applicationId()))).isEqualTo("RECEIVED");
+        assertThat(send(HttpMethod.POST, "/api/v1/interviews/" + unanswered + "/outcome", Map.of("expectedVersion", 0, "outcome", "NO_SHOW"), f.admin())
+                .getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(tree(send(HttpMethod.GET, "/api/v1/interviews?view=history", null, f.candidate())).get("items")).hasSize(2);
+    }
+
+    private UUID schedule(Fixture f, Map<String, Object> details) {
+        UUID id = UUID.randomUUID();
+        var created = send(HttpMethod.POST, "/api/v1/interviews", Map.of("id", id, "applicationId", f.applicationId(), "details", details), f.admin());
+        assertThat(created.getStatusCode()).as(created.getBody()).isEqualTo(HttpStatus.CREATED);
+        return id;
+    }
+
+    private String status(ResponseEntity<String> response) throws Exception {
+        assertThat(response.getStatusCode()).as(response.getBody()).isEqualTo(HttpStatus.OK);
+        return tree(response).get("status").asText();
+    }
+
+    private int events(UUID id) {
+        return jdbc.queryForObject("select count(*) from interview_events where interview_id = ?", Integer.class, id);
     }
 
     private Map<String, Object> details(int days) {
@@ -123,7 +298,7 @@ class InterviewIntegrationTest {
         assertThat(send(HttpMethod.GET, "/api/v1/interviews/context/" + f.applicationId(), null, f.admin()).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(send(HttpMethod.POST, "/api/v1/interviews", Map.of("id", UUID.randomUUID(), "applicationId", f.applicationId(), "details", details(1)), f.admin()).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(send(HttpMethod.PUT, "/api/v1/interviews/" + first, Map.of("expectedVersion", 0, "details", details(2)), f.admin()).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
-        assertThat(send(HttpMethod.POST, "/api/v1/interviews/" + first + "/cancel", Map.of("expectedVersion", 0), f.admin()).getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(send(HttpMethod.POST, "/api/v1/interviews/" + first + "/cancel", Map.of("expectedVersion", 0, "reason", "Motivo sintético"), f.admin()).getStatusCode()).isEqualTo(HttpStatus.OK);
     }
 
     private Fixture fixture() throws Exception {
