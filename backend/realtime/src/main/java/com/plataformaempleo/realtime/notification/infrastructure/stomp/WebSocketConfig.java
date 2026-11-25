@@ -5,9 +5,12 @@ import com.plataformaempleo.realtime.notification.infrastructure.security.StompA
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 /**
  * WebSocket con STOMP en {@code /ws} y broker relay hacia el STOMP de RabbitMQ.
@@ -15,6 +18,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * RabbitMQ entrega los avisos a las conexiones de cada persona, estén en el nodo que estén.
  */
 @Configuration
+@EnableScheduling
 @EnableWebSocketMessageBroker
 class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
@@ -23,10 +27,23 @@ class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final RealtimeProperties props;
     private final StompAuthInterceptor auth;
+    private final ExpiringSessions sessions;
 
-    WebSocketConfig(RealtimeProperties props, StompAuthInterceptor auth) {
+    WebSocketConfig(RealtimeProperties props, StompAuthInterceptor auth, ExpiringSessions sessions) {
         this.props = props;
         this.auth = auth;
+        this.sessions = sessions;
+    }
+
+    /** VALOR SUPUESTO: revisar cada 5 s; una conexión vencida recibe avisos como mucho 5 s de más. */
+    @Scheduled(fixedDelayString = "${worksy.realtime.session-check-ms:5000}")
+    void closeExpiredSessions() {
+        sessions.closeExpired();
+    }
+
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        registration.addDecoratorFactory(sessions::decorate);
     }
 
     @Override
@@ -40,6 +57,8 @@ class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         registry.enableStompBrokerRelay("/topic")
                 .setRelayHost(relay.host())
                 .setRelayPort(relay.port())
+                // Fijo: si no, la cabecera «host» del CONNECT del navegador elegiría el virtual host de RabbitMQ.
+                .setVirtualHost(relay.virtualHost())
                 .setClientLogin(relay.login())
                 .setClientPasscode(relay.passcode())
                 .setSystemLogin(relay.login())

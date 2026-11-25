@@ -84,6 +84,7 @@ class RealtimeApplicationTest {
         registry.add("worksy.realtime.relay.port", () -> RABBIT.getMappedPort(61613));
         registry.add("worksy.realtime.relay.login", RABBIT::getAdminUsername);
         registry.add("worksy.realtime.relay.passcode", RABBIT::getAdminPassword);
+        registry.add("worksy.realtime.session-check-ms", () -> 300);
     }
 
     @LocalServerPort
@@ -220,7 +221,62 @@ class RealtimeApplicationTest {
         assertThat(session.isConnected()).isFalse();
     }
 
+    @Test
+    void noPermiteEngancharseALaColaInternaConCabecerasDeRabbitMq() throws Exception {
+        UUID ana = UUID.randomUUID();
+        UUID intrusa = UUID.randomUUID();
+        BlockingQueue<String> anaInbox = subscribe(connect(token(ana, SECRET, Instant.now().plusSeconds(600))), ana);
+        StompSession attacker = connect(token(intrusa, SECRET, Instant.now().plusSeconds(600)));
+        StompHeaders headers = new StompHeaders();
+        headers.setDestination("/topic/user." + intrusa);
+        headers.add("x-queue-name", Messaging.REALTIME_NOTIFICATIONS_QUEUE);
+        headers.add("durable", "true");
+        headers.add("auto-delete", "false");
+        headers.add("x-queue-type", "quorum");
+        BlockingQueue<String> stolen = new LinkedBlockingQueue<>();
+        attacker.subscribe(headers, new Collector(stolen));
+        awaitDisconnected(attacker);
+
+        // Ya rechazada la intrusa, todos los avisos de Ana le llegan a Ana.
+        String first = null;
+        for (int attempt = 0; attempt < 10 && first == null; attempt++) {
+            publish(Map.of("messageId", UUID.randomUUID().toString(), "applicationId", UUID.randomUUID().toString(),
+                    "recipientIds", List.of(ana.toString())));
+            first = anaInbox.poll(1, TimeUnit.SECONDS);
+        }
+        assertThat(first).isNotNull();
+        for (int i = 0; i < 10; i++) {
+            publish(Map.of("messageId", UUID.randomUUID().toString(), "applicationId", UUID.randomUUID().toString(),
+                    "recipientIds", List.of(ana.toString())));
+        }
+        for (int i = 0; i < 10; i++) {
+            assertThat(anaInbox.poll(5, TimeUnit.SECONDS)).as("aviso %d para Ana", i).isNotNull();
+        }
+        assertThat(stolen).isEmpty();
+    }
+
+    @Test
+    void cierraLaConexionCuandoVenceElToken() throws Exception {
+        UUID ana = UUID.randomUUID();
+        StompSession session = connect(token(ana, SECRET, Instant.now().plusSeconds(3)));
+        subscribe(session, ana);
+        assertThat(session.isConnected()).isTrue();
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (session.isConnected() && System.nanoTime() < deadline) {
+            Thread.sleep(100);
+        }
+        assertThat(session.isConnected()).as("cerrada al vencer el token").isFalse();
+    }
+
     // ---- utilidades ----
+
+    private static void awaitDisconnected(StompSession session) throws InterruptedException {
+        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        while (session.isConnected() && System.nanoTime() < deadline) {
+            Thread.sleep(50);
+        }
+        assertThat(session.isConnected()).as("el servicio rechaza la trama y cierra").isFalse();
+    }
 
     private StompSession connect(String token) throws Exception {
         client = client == null ? new WebSocketStompClient(new StandardWebSocketClient()) : client;

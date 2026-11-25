@@ -22,6 +22,10 @@ public record RealtimeProperties(String jwtSecret, String issuer, List<String> a
         allowedOrigins = allowedOrigins == null ? List.of() : List.copyOf(allowedOrigins);
     }
 
-    public record Relay(String host, int port, String login, String passcode) {
+    /** @param virtualHost virtual host de RabbitMQ para todas las conexiones del relay; por defecto {@code /} */
+    public record Relay(String host, int port, String login, String passcode, String virtualHost) {
+        public Relay {
+            virtualHost = virtualHost == null || virtualHost.isBlank() ? "/" : virtualHost;
+        }
     }
 }

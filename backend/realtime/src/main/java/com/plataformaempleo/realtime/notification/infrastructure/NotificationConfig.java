@@ -5,7 +5,9 @@ import com.plataformaempleo.common.events.Messaging;
 import com.plataformaempleo.realtime.notification.application.NotificationService;
 import com.plataformaempleo.realtime.notification.domain.port.out.NotificationPublisher;
 import com.plataformaempleo.realtime.notification.infrastructure.security.StompAuthInterceptor;
+import com.plataformaempleo.realtime.notification.infrastructure.stomp.ExpiringSessions;
 import java.nio.charset.StandardCharsets;
+import java.time.Clock;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Declarables;
@@ -41,8 +43,18 @@ class NotificationConfig {
     }
 
     @Bean
-    StompAuthInterceptor stompAuthInterceptor(JwtDecoder decoder) {
-        return new StompAuthInterceptor(decoder);
+    Clock clock() {
+        return Clock.systemUTC();
+    }
+
+    @Bean
+    StompAuthInterceptor stompAuthInterceptor(JwtDecoder decoder, Clock clock) {
+        return new StompAuthInterceptor(decoder, clock);
+    }
+
+    @Bean
+    ExpiringSessions expiringSessions(Clock clock) {
+        return new ExpiringSessions(clock);
     }
 
     /** Misma declaración que en la API ({@link Messaging}); declarar dos veces es inocuo. */
