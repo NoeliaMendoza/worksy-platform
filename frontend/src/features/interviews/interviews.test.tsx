@@ -9,7 +9,7 @@ import { InterviewForm } from './interview-form'
 import { InterviewsPage } from './interviews-page'
 import { InterviewInboxContext, useInterviewInbox } from './interview-inbox-context'
 import { InterviewNotice } from './interview-notice'
-import { interviewTime, localDateTime, toInstant } from './interview-time'
+import { interviewTime, localDateTime, toInstant, viewerZone, zoneLabel } from './interview-time'
 
 // Datos sintéticos.
 vi.mock('@/features/auth/auth-context', () => ({ useAuth: vi.fn() }))
@@ -46,7 +46,8 @@ describe('entrevistas del candidato', () => {
     render(<InterviewsPage />)
     expect(await within(await screen.findByRole('complementary')).findByRole('heading', { name: 'Entrevista técnica' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: /Por confirmar 1/ })).toBeInTheDocument()
-    expect(screen.getByText('Hora de Guayaquil', { exact: false })).toBeInTheDocument()
+    // La zona es la del equipo que ejecuta la prueba (en CI, UTC): no se fija ninguna.
+    expect(screen.getByText(zoneLabel(viewerZone()))).toBeInTheDocument()
     expect(interviewsApi.read).not.toHaveBeenCalled()
     await userEvent.click(screen.getByRole('button', { name: /Entrevista técnica.*Por confirmar/ }))
     await waitFor(() => expect(interviewsApi.read).toHaveBeenCalledExactlyOnceWith('sintetico', 'i-1', 2))
