@@ -9,7 +9,7 @@ export type InterviewChange = 'SCHEDULED' | 'UPDATED' | 'CONFIRMED' | 'DECLINED'
 
 export interface InterviewDetails {
   title: string; startsAt: string; durationMinutes: number; zoneId: string
-  mode: 'ONLINE' | 'IN_PERSON'; place: string; note: string | null
+  mode: 'ONLINE' | 'IN_PERSON' | 'VIDEO'; place: string; note: string | null
 }
 export interface Interview extends InterviewDetails {
   id: string; applicationId: string; version: number; status: InterviewStatus

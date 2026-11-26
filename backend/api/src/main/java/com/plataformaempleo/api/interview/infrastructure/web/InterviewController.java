@@ -61,7 +61,8 @@ class InterviewController {
 
     record DetailsBody(@NotBlank @Size(max = 120) String title, @NotNull Instant startsAt,
                        @Min(15) @Max(180) int durationMinutes, @NotBlank @Size(max = 64) String zoneId,
-                       @NotNull Interview.Mode mode, @NotBlank @Size(max = 500) String place,
+                       @NotNull Interview.Mode mode,
+                       @Schema(description = "Enlace https (ONLINE) o dirección (IN_PERSON); se ignora en VIDEO") @Size(max = 500) String place,
                        @Schema(description = "Mensaje visible para el candidato, no notas internas") @Size(max = 1000) String note) {
         @Override public String toString() { return "InterviewDetails[redacted]"; }
     }

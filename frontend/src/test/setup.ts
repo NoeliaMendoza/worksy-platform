@@ -3,6 +3,6 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, vi } from 'vitest'
 
 // Las pruebas no abren WebSocket reales: el tiempo real se simula en las pruebas que lo necesitan.
-vi.mock('@/lib/realtime-client', () => ({ openRealtime: vi.fn(() => ({ close: vi.fn(), renew: vi.fn() })) }))
+vi.mock('@/lib/realtime-client', () => ({ openRealtime: vi.fn(() => ({ close: vi.fn(), renew: vi.fn(), send: vi.fn(() => true) })) }))
 
 afterEach(() => cleanup())

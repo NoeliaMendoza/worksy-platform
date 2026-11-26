@@ -26,7 +26,8 @@ import org.springframework.security.oauth2.jwt.JwtException;
  *       cuándo vence en la sesión ({@link #EXPIRES_AT}).</li>
  *   <li>SUBSCRIBE: solo al tema personal de quien se conectó ({@code /topic/user.<su id>}), con confirmación
  *       automática y mientras el token siga vigente.</li>
- *   <li>SEND, ACK, NACK y transacciones: no se aceptan; los mensajes se escriben por la API REST.</li>
+ *   <li>SEND: solo a {@value #CALL_SIGNAL_DESTINATION} (señales de la videollamada, validadas con el token de sala).</li>
+ *   <li>ACK, NACK y transacciones: no se aceptan; los mensajes del chat se escriben por la API REST.</li>
  * </ul>
  * Cada comando admite solo sus cabeceras estándar. El broker relay reenvía las cabeceras a RabbitMQ, que interpreta
  * algunas propias ({@code x-queue-name}, {@code durable}, {@code auto-delete}…) para elegir o crear colas: sin esta
@@ -40,6 +41,9 @@ public class StompAuthInterceptor implements ChannelInterceptor {
 
     private static final String BEARER = "Bearer ";
 
+    /** Único destino al que el navegador puede enviar: señales WebRTC de una sala autorizada (se validan aparte). */
+    public static final String CALL_SIGNAL_DESTINATION = "/app/call.signal";
+
     private static final Set<String> CONNECT_HEADERS =
             Set.of("accept-version", "heart-beat", "host", "login", "passcode", "Authorization");
 
@@ -49,6 +53,8 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             StompCommand.STOMP, CONNECT_HEADERS,
             StompCommand.SUBSCRIBE, Set.of("id", "destination", "ack", "receipt"),
             StompCommand.UNSUBSCRIBE, Set.of("id", "receipt"),
+            // Solo señales de la videollamada; los mensajes del chat se escriben por la API REST.
+            StompCommand.SEND, Set.of("destination", "content-type", "content-length", "receipt"),
             StompCommand.DISCONNECT, Set.of("receipt"));
 
     private final JwtDecoder decoder;
@@ -81,9 +87,6 @@ public class StompAuthInterceptor implements ChannelInterceptor {
             return message; // latidos
         }
         StompCommand command = stomp.getCommand();
-        if (command == StompCommand.SEND) {
-            throw new MessageDeliveryException("Los mensajes se envían por la API, no por el WebSocket");
-        }
         Set<String> allowed = ALLOWED_HEADERS.get(command);
         if (allowed == null) {
             throw new MessageDeliveryException("Esta conexión solo admite suscribirse a tus avisos");
@@ -100,6 +103,13 @@ public class StompAuthInterceptor implements ChannelInterceptor {
                 String ack = stomp.getFirstNativeHeader("ack");
                 if (ack != null && !ack.equals("auto")) {
                     throw new MessageDeliveryException("Los avisos se confirman de forma automática");
+                }
+            }
+            case SEND -> {
+                userOf(stomp);
+                requireLiveToken(stomp);
+                if (!CALL_SIGNAL_DESTINATION.equals(stomp.getDestination())) {
+                    throw new MessageDeliveryException("Los mensajes se envían por la API, no por el WebSocket");
                 }
             }
             default -> {

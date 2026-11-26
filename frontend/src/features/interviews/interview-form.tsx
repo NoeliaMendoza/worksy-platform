@@ -33,8 +33,8 @@ export function InterviewForm({ token, applicationId, current, onSaved, onClose,
   const [title, setTitle] = useState(current?.title ?? 'Entrevista de selección')
   const [date, setDate] = useState(current ? localDateTime(current.startsAt) : '')
   const [duration, setDuration] = useState(current?.durationMinutes ?? 30)
-  const [mode, setMode] = useState<InterviewDetails['mode']>(current?.mode ?? 'ONLINE')
-  const [place, setPlace] = useState(current?.place ?? '')
+  const [mode, setMode] = useState<InterviewDetails['mode']>(current?.mode ?? 'VIDEO')
+  const [place, setPlace] = useState(current && current.mode !== 'VIDEO' ? current.place : '')
   const [note, setNote] = useState(current?.note ?? '')
   const [reason, setReason] = useState('')
   const [overlaps, setOverlaps] = useState<InterviewOverlap[]>([])
@@ -42,7 +42,7 @@ export function InterviewForm({ token, applicationId, current, onSaved, onClose,
   const validDate = Number.isFinite(dateValue.getTime())
   const preview = validDate ? interviewTime(dateValue.toISOString(), zoneId) : null
   const material = !!current && (!validDate || dateValue.toISOString() !== new Date(current.startsAt).toISOString()
-    || duration !== current.durationMinutes || mode !== current.mode || place !== current.place)
+    || duration !== current.durationMinutes || mode !== current.mode || (mode !== 'VIDEO' && place !== current.place))
 
   // Aviso de cruces: se consulta un momento después de elegir la hora.
   useEffect(() => {
@@ -62,7 +62,7 @@ export function InterviewForm({ token, applicationId, current, onSaved, onClose,
     setSending(true)
     setError('')
     try {
-      const details = pending.current ?? { title, startsAt: toInstant(date), durationMinutes: duration, zoneId, mode, place, note }
+      const details = pending.current ?? { title, startsAt: toInstant(date), durationMinutes: duration, zoneId, mode, place: mode === 'VIDEO' ? '' : place, note }
       pending.current = details
       const saved = current ? await interviewsApi.update(token, current.id, current.version, details, reason.trim())
         : await interviewsApi.schedule(token, requestId.current, applicationId, details)
@@ -93,14 +93,15 @@ export function InterviewForm({ token, applicationId, current, onSaved, onClose,
         Puedes guardar igual si la lleva otra persona del equipo.
       </p>}
       <Field id={id('mode')} label="Modalidad"><select id={id('mode')} className={selectClass} value={mode} onChange={(e) => setMode(e.target.value as InterviewDetails['mode'])}>
-        <option value="ONLINE">Reunión en línea (enlace)</option><option value="IN_PERSON">Presencial</option></select></Field>
-      <Field id={id('place')} label={mode === 'ONLINE' ? 'Enlace HTTPS de la reunión' : 'Dirección e indicaciones para llegar'}>
-        <Input id={id('place')} type={mode === 'ONLINE' ? 'url' : 'text'} pattern={mode === 'ONLINE' ? 'https://.*' : undefined} required maxLength={500} value={place} onChange={(e) => setPlace(e.target.value)} /></Field>
+        <option value="VIDEO">Videollamada en Worksy</option><option value="IN_PERSON">Presencial</option><option value="ONLINE">Enlace de otro servicio</option></select></Field>
+      {mode === 'VIDEO' && <p className="-mt-2 text-sm text-ink-500">La sala se crea sola, abre 15 minutos antes y solo pueden entrar la persona candidata y quien agenda. No se graba.</p>}
+      {mode !== 'VIDEO' && <Field id={id('place')} label={mode === 'ONLINE' ? 'Enlace HTTPS de la reunión' : 'Dirección e indicaciones para llegar'}>
+        <Input id={id('place')} type={mode === 'ONLINE' ? 'url' : 'text'} pattern={mode === 'ONLINE' ? 'https://.*' : undefined} required maxLength={500} value={place} onChange={(e) => setPlace(e.target.value)} /></Field>}
       <Field id={id('note')} label="Mensaje para la persona (opcional)"><Textarea id={id('note')} maxLength={1000} rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
       {current && <Field id={id('reason')} label="Motivo del cambio (opcional, lo verá la persona)"><Input id={id('reason')} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} /></Field>}
     </fieldset>
     {current && <p className="text-sm text-ink-700">{material ? 'Al guardar, la persona deberá confirmar de nuevo y se cerrará cualquier propuesta de otra hora.' : 'Si solo cambias el título o el mensaje, se conserva su respuesta.'}</p>}
-    <p className="text-xs text-ink-500">Todos estos datos son visibles para la persona y para tu equipo. Crea la reunión en tu servicio habitual y pega su enlace.</p>
+    <p className="text-xs text-ink-500">Todos estos datos son visibles para la persona y para tu equipo. No se graba ninguna entrevista.</p>
     {error && <Notice tone="error">{error}</Notice>}
     {uncertain && <p role="status" className="text-sm">No sabemos si se guardó. Reintenta la misma solicitud o vuelve a la agenda para comprobarlo.</p>}
     {conflict && <p role="status" className="text-sm">La cita cambió. Vuelve a la agenda y abre su versión actual antes de editar.</p>}

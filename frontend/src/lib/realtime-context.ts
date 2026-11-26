@@ -14,6 +14,8 @@ export type RealtimeValue = {
   listen: (listener: NoticeListener) => () => void
   /** Avisa a las demás partes de la app (no sale del navegador). */
   emit: (notice: AppNotice) => void
+  /** Envía una trama al servicio de tiempo real (señales de videollamada). Sin conexión, devuelve false. */
+  send?: (destination: string, body: unknown) => boolean
 }
 
 export const RealtimeContext = createContext<RealtimeValue | null>(null)

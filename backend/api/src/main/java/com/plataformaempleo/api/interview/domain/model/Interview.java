@@ -24,7 +24,10 @@ import java.util.UUID;
 public record Interview(UUID id, UUID applicationId, int version, String title, Instant startsAt,
                         int durationMinutes, String zoneId, Mode mode, String place, String note,
                         Status status, String cancelReason, Instant outcomeAt, Instant updatedAt) {
-    public enum Mode { ONLINE, IN_PERSON }
+    /** ONLINE: enlace externo (como hasta ahora). VIDEO: sala de videollamada de Worksy. IN_PERSON: dirección. */
+    public enum Mode { ONLINE, IN_PERSON, VIDEO }
+    /** Texto que se guarda como lugar de una cita en la sala de Worksy (no hay enlace que pegar). */
+    public static final String VIDEO_PLACE = "Videollamada en Worksy";
     public enum Status { INVITED, CONFIRMED, DECLINED, CANCELLED, COMPLETED, NO_SHOW }
     public enum Change {
         SCHEDULED, UPDATED, CONFIRMED, DECLINED, CANCELLED, CHANGE_REQUESTED, CHANGE_WITHDRAWN, CHANGE_ACCEPTED,
@@ -48,7 +51,7 @@ public record Interview(UUID id, UUID applicationId, int version, String title, 
         if (duration < 15 || duration > 180) throw invalid("La duración debe ser de 15 a 180 minutos");
         try { ZoneId.of(zoneId); } catch (DateTimeException | NullPointerException e) { throw invalid("La zona horaria no es válida"); }
         title = clean(title, 120, true);
-        place = clean(place, 500, true);
+        place = mode == Mode.VIDEO ? VIDEO_PLACE : clean(place, 500, true);
         note = clean(note, 1000, false);
         if (mode == Mode.ONLINE) {
             try {

@@ -33,6 +33,7 @@ export function RealtimeProvider({ userId, token, children }: { userId: string; 
     }
   }, [userId, emit])
 
-  const value = useMemo<RealtimeValue>(() => ({ status, emit, listen }), [status, emit, listen])
+  const send = useCallback((destination: string, body: unknown) => connection.current?.send(destination, body) ?? false, [])
+  const value = useMemo<RealtimeValue>(() => ({ status, emit, listen, send }), [status, emit, listen, send])
   return <RealtimeContext.Provider value={value}>{children}</RealtimeContext.Provider>
 }
