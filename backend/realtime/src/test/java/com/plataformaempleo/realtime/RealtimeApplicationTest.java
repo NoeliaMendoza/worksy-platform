@@ -268,7 +268,77 @@ class RealtimeApplicationTest {
         assertThat(session.isConnected()).as("cerrada al vencer el token").isFalse();
     }
 
+    @Test
+    void reenviaSenalesDeVideollamadaSoloEntreParticipantesDeLaSala() throws Exception {
+        UUID ana = UUID.randomUUID();
+        UUID luis = UUID.randomUUID();
+        UUID intrusa = UUID.randomUUID();
+        UUID sessionId = UUID.randomUUID();
+        UUID interviewId = UUID.randomUUID();
+        StompSession anaSession = connect(token(ana, SECRET, Instant.now().plusSeconds(600)));
+        BlockingQueue<String> anaInbox = subscribe(anaSession, ana);
+        BlockingQueue<String> luisInbox = subscribe(connect(token(luis, SECRET, Instant.now().plusSeconds(600))), luis);
+        StompSession intrusaSession = connect(token(intrusa, SECRET, Instant.now().plusSeconds(600)));
+        BlockingQueue<String> intrusaInbox = subscribe(intrusaSession, intrusa);
+        String room = roomToken(ana, List.of(luis), sessionId, interviewId, SECRET, Instant.now().plusSeconds(600));
+
+        // Oferta de Ana a Luis: llega tal cual, con el tipo call.signal y sin datos de otras personas.
+        String received = null;
+        for (int attempt = 0; attempt < 10 && received == null; attempt++) {
+            signal(anaSession, room, luis, "offer", Map.of("type", "offer", "sdp", "v=0 sintético"));
+            received = luisInbox.poll(1, TimeUnit.SECONDS);
+        }
+        assertThat(received).as("señal para Luis").isNotNull();
+        JsonNode offer = json.readTree(received);
+        assertThat(offer.get("type").asText()).isEqualTo("call.signal");
+        assertThat(offer.get("from").asText()).isEqualTo(ana.toString());
+        assertThat(offer.get("kind").asText()).isEqualTo("offer");
+        assertThat(offer.get("interviewId").asText()).isEqualTo(interviewId.toString());
+        assertThat(offer.get("data").get("sdp").asText()).isEqualTo("v=0 sintético");
+        luisInbox.clear();
+
+        // A quien no está en la sala no le llega; Ana recibe el aviso de rechazo.
+        signal(anaSession, room, intrusa, "offer", Map.of("type", "offer", "sdp", "v=0"));
+        assertThat(json.readTree(anaInbox.poll(5, TimeUnit.SECONDS)).get("type").asText()).isEqualTo("call.error");
+        // Con el token de sala de otra persona, o con un token de acceso normal, tampoco.
+        signal(intrusaSession, room, luis, "offer", Map.of("type", "offer", "sdp", "v=0"));
+        signal(intrusaSession, token(intrusa, SECRET, Instant.now().plusSeconds(600)), luis, "offer", Map.of());
+        assertThat(json.readTree(intrusaInbox.poll(5, TimeUnit.SECONDS)).get("type").asText()).isEqualTo("call.error");
+        assertThat(luisInbox.poll(1, TimeUnit.SECONDS)).as("Luis no recibe señales ajenas").isNull();
+
+        // Enviar a cualquier otro destino corta la conexión.
+        StompHeaders other = new StompHeaders();
+        other.setDestination("/topic/user." + luis);
+        intrusaSession.send(other, "{}".getBytes(StandardCharsets.UTF_8));
+        awaitDisconnected(intrusaSession);
+
+        // Si Ana se desconecta, Luis recibe «bye» para no esperarla.
+        anaSession.disconnect();
+        String bye = luisInbox.poll(5, TimeUnit.SECONDS);
+        assertThat(bye).isNotNull();
+        assertThat(json.readTree(bye).get("kind").asText()).isEqualTo("bye");
+        assertThat(intrusaInbox).as("la intrusa nunca recibe señales de la sala").noneMatch(m -> m.contains("call.signal"));
+    }
+
     // ---- utilidades ----
+
+    private void signal(StompSession session, String room, UUID to, String kind, Object data) throws Exception {
+        StompHeaders headers = new StompHeaders();
+        headers.setDestination("/app/call.signal");
+        headers.setContentType(org.springframework.util.MimeTypeUtils.APPLICATION_JSON);
+        session.send(headers, json.writeValueAsBytes(Map.of("token", room, "to", to.toString(), "kind", kind, "data", data)));
+    }
+
+    private static String roomToken(UUID userId, List<UUID> peers, UUID sessionId, UUID interviewId, String secret, Instant expiresAt)
+            throws Exception {
+        JWTClaimsSet claims = new JWTClaimsSet.Builder().issuer("worksy-call").audience("worksy-realtime").subject(userId.toString())
+                .issueTime(Date.from(Instant.now())).expirationTime(Date.from(expiresAt))
+                .claim("sid", sessionId.toString()).claim("iid", interviewId.toString()).claim("role", "CANDIDATE")
+                .claim("peers", peers.stream().map(UUID::toString).toList()).build();
+        SignedJWT jwt = new SignedJWT(new JWSHeader(JWSAlgorithm.HS256), claims);
+        jwt.sign(new MACSigner(secret.getBytes(StandardCharsets.UTF_8)));
+        return jwt.serialize();
+    }
 
     private static void awaitDisconnected(StompSession session) throws InterruptedException {
         long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();

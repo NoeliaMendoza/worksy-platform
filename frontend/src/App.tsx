@@ -29,6 +29,7 @@ import { RealtimeProvider } from '@/lib/realtime-provider'
 import { ApplicationUpdatesContext, useApplicationUpdates } from '@/features/application/application-updates-context'
 import { WorkspaceNotices } from '@/components/workspace-notices'
 import { InterviewsPage } from '@/features/interviews/interviews-page'
+import { CallPage } from '@/features/call/call-page'
 import { InterviewInboxContext, useInterviewInbox } from '@/features/interviews/interview-inbox-context'
 import { useLocation } from '@/lib/router'
 import type { RankingPreview } from '@/mocks/vacancy-ranking'
@@ -134,6 +135,8 @@ function Workspace({ user, token, pathname }: { user: AuthUser; token: string; p
 /** Pantalla de cada ruta por rol. null = la ruta existe en el menú pero aún no tiene pantalla. */
 function pageFor(role: AuthUser['role'], section: string): { current: string; element: ReactNode } | null {
   const [first = '', id, sub] = section.split('/')
+  if (role !== 'PLATFORM_ADMIN' && first === 'entrevistas' && id && sub === 'sala')
+    return { current: 'entrevistas', element: <CallPage key={id} interviewId={id} /> }
   if (role !== 'PLATFORM_ADMIN' && first === 'entrevistas') return { current: 'entrevistas', element: <InterviewsPage /> }
   if (role === 'CANDIDATE') {
     if (first === '' || first === 'inicio') return { current: 'inicio', element: <ScreenBoundary><Suspense fallback={<div className="app-page text-sm text-ink-500" role="status">Cargando inicio…</div>}><CandidateDashboard /></Suspense></ScreenBoundary> }

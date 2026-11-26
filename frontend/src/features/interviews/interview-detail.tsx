@@ -1,4 +1,4 @@
-import { ArrowLeft, CalendarPlus, ExternalLink } from 'lucide-react'
+import { ArrowLeft, CalendarPlus, ExternalLink, Video as VideoIcon } from 'lucide-react'
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { AppLink } from '@/components/app-link'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +16,10 @@ import { historyLine, interviewState } from './interview-labels'
 import { clock, dayKey, longWhen, otherZoneNote, relativeWhen, toInstant, viewerZone } from './interview-time'
 
 type Panel = null | 'decline' | 'propose' | 'cancel' | 'edit' | 'reject'
+
+/** Horario de la sala de videollamada (igual que la API): 15 min antes y hasta 30 min después del final. */
+const ROOM_OPENS_BEFORE_MS = 15 * 60_000
+const ROOM_CLOSES_AFTER_MS = 30 * 60_000
 
 /** Ventana para corregir el resultado registrado (igual que la API). */
 const OUTCOME_CORRECTION_MS = 24 * 3_600_000
@@ -129,6 +133,9 @@ export function InterviewDetail({ token, company, id, explicit, overlap, onChang
   const correctable = (i.status === 'COMPLETED' || i.status === 'NO_SHOW') && !!i.outcomeAt && now - Date.parse(i.outcomeAt) < OUTCOME_CORRECTION_MS
   const canRecordOutcome = company && (data.phase === 'AWAITING_OUTCOME' || data.phase === 'EXPIRED' || correctable)
   const zoneNote = otherZoneNote(i.startsAt, i.zoneId)
+  const roomOpens = Date.parse(i.startsAt) - ROOM_OPENS_BEFORE_MS
+  const roomCloses = Date.parse(i.startsAt) + i.durationMinutes * 60_000 + ROOM_CLOSES_AFTER_MS
+  const roomOpen = now >= roomOpens && now < roomCloses
   const v = i.version
 
   return <DetailFrame onBack={onBack}>
@@ -152,7 +159,7 @@ export function InterviewDetail({ token, company, id, explicit, overlap, onChang
       <dd className="font-semibold text-ink-900">{longWhen(i.startsAt, i.durationMinutes)}
         {zoneNote && <span className="block font-normal text-ink-500">Para la empresa: {zoneNote}</span>}</dd>
       <dt className="text-ink-500">Dónde</dt>
-      <dd className="break-words">{i.mode === 'ONLINE' ? 'Reunión en línea con enlace' : i.place}</dd>
+      <dd className="break-words">{i.mode === 'ONLINE' ? 'Reunión en línea con enlace' : i.mode === 'VIDEO' ? 'Videollamada en Worksy (no se graba)' : i.place}</dd>
       {company && data.organizerEmail && <><dt className="text-ink-500">Responsable</dt><dd className="break-words">{data.organizerEmail}</dd></>}
       {i.note && <><dt className="text-ink-500">Mensaje</dt><dd className="whitespace-pre-wrap break-words">{i.note}</dd></>}
     </dl>
@@ -160,6 +167,10 @@ export function InterviewDetail({ token, company, id, explicit, overlap, onChang
     {overlap && !company && future && <p className="rounded-lg bg-mid-100 px-4 py-3 text-sm text-mid-700">
       Ese día tienes otra entrevista que se cruza: {overlap.interview.title}, {clock(overlap.interview.startsAt)}. Solo tú ves este aviso.
     </p>}
+
+    {i.mode === 'VIDEO' && ['INVITED', 'CONFIRMED'].includes(i.status) && (roomOpen
+      ? <Button asChild><AppLink href={`/entrevistas/${i.id}/sala`} className="text-white hover:text-white hover:no-underline"><VideoIcon aria-hidden="true" />Entrar a la sala</AppLink></Button>
+      : now < roomCloses && <p className="rounded-lg bg-azure-50 px-4 py-3 text-sm text-navy-800">La sala de videollamada abre 15 minutos antes, a las {clock(new Date(roomOpens))}.</p>)}
 
     {/* Acciones del candidato */}
     {!company && changeable && panel === null && <div className="flex flex-col gap-2">

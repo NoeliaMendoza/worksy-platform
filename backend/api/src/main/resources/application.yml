@@ -73,6 +73,9 @@ worksy:
         client-secret: ${GITHUB_CLIENT_SECRET:}
   mail:
     from: ${MAIL_FROM:}
+  # Videollamada: servidores STUN (stun: o stuns:) separados por comas. Vacío = solo misma red; TURN en la Entrega 3.
+  call:
+    ice-servers: ${CALL_ICE_SERVERS:}
   # Publicador del outbox: cada segundo envía hasta 100 eventos pendientes (VALORES SUPUESTOS).
   outbox:
     enabled: ${OUTBOX_ENABLED:true}

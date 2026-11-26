@@ -5,8 +5,14 @@ export type RealtimeNotice =
   | { type: 'message.sent'; applicationId: string; messageId: string }
   | { type: 'application.stage.changed'; applicationId: string; stageChangeId: number }
   | { type: 'interview.changed'; applicationId: string; interviewId: string }
+  /** Señal WebRTC de otra persona de una sala de videollamada (solo entre participantes autorizados). */
+  | { type: 'call.signal'; interviewId: string; sessionId: string; from: string; role: string; kind: CallSignalKind; data: unknown }
+  /** El servicio rechazó una señal propia (token de sala vencido, destinatario ajeno, demasiadas señales). */
+  | { type: 'call.error'; message: string }
   /** La conexión volvió tras cortarse: pudo perderse algún aviso, conviene recargar. */
   | { type: 'reconnected' }
+
+export type CallSignalKind = 'hello' | 'offer' | 'answer' | 'ice' | 'bye' | 'state'
 
 export type RealtimeStatus = 'connecting' | 'online' | 'offline'
 
@@ -29,6 +35,8 @@ export type RealtimeConnection = {
    * conviene llamarla cada vez que la sesión renueva el token de acceso.
    */
   renew: () => void
+  /** Envía una trama (solo se admite /app/call.signal). Devuelve false si no hay conexión en este momento. */
+  send: (destination: string, body: unknown) => boolean
 }
 
 /**
@@ -67,6 +75,11 @@ export function openRealtime({ userId, getToken, onNotice, onStatus }: Options):
   })
   client.activate()
   return {
+    send: (destination, body) => {
+      if (closed || !client.connected) return false
+      client.publish({ destination, body: JSON.stringify(body), headers: { 'content-type': 'application/json' } })
+      return true
+    },
     close: () => {
       closed = true
       void client.deactivate()

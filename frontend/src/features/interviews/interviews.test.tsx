@@ -203,7 +203,8 @@ describe('formulario de entrevista', () => {
     const saved = vi.fn()
     render(<InterviewForm token="sintetico" applicationId="a-1" onSaved={saved} onClose={vi.fn()} />)
     fireEvent.change(screen.getByLabelText('Fecha y hora'), { target: { value: '2099-04-10T10:00' } })
-    await userEvent.type(screen.getByLabelText('Enlace HTTPS de la reunión'), 'https://example.test/sala')
+    // Por defecto es la sala de Worksy: no hay enlace que pegar.
+    expect(screen.queryByLabelText('Enlace HTTPS de la reunión')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Enviar invitación' }))
     expect(await screen.findByText(/No sabemos si se guardó/)).toBeInTheDocument()
     expect(screen.getByLabelText('Título')).toBeDisabled()
